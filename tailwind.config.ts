@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,6 +62,23 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				hospital: {
+					bed: {
+						available: '#4ade80', // green-400
+						occupied: '#f97316', // orange-500
+						cleaning: '#60a5fa', // blue-400
+					},
+					patient: {
+						critical: '#ef4444', // red-500
+						stable: '#22c55e', // green-500
+						discharged: '#6b7280', // gray-500
+					},
+					floor: {
+						base: '#d1d5db', // gray-300
+						grid: '#9ca3af', // gray-400
+						wall: '#e5e7eb', // gray-200
+					}
 				}
 			},
 			borderRadius: {
@@ -84,11 +102,29 @@ export default {
 					to: {
 						height: '0'
 					}
-				}
+				},
+				'pulse-soft': {
+					'0%, 100%': {
+						opacity: '1',
+					},
+					'50%': {
+						opacity: '0.7',
+					},
+				},
+				'float': {
+					'0%, 100%': {
+						transform: 'translateY(0)',
+					},
+					'50%': {
+						transform: 'translateY(-5px)',
+					},
+				},
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'pulse-soft': 'pulse-soft 2s ease-in-out infinite',
+				'float': 'float 3s ease-in-out infinite',
 			}
 		}
 	},
