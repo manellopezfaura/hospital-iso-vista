@@ -1,7 +1,7 @@
 
 import React, { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'; // Fixed import with .js extension
 import { Hospital, Bed, Patient, Position, BedStatus, PatientStatus } from '@/types/hospital';
 
 interface ThreeJSCanvasProps {
