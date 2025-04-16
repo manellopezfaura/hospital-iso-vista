@@ -1,7 +1,7 @@
 
 import React, { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'; // Fixed import with .js extension
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Hospital, Bed, Patient, Position, BedStatus, PatientStatus } from '@/types/hospital';
 
 interface ThreeJSCanvasProps {
@@ -25,7 +25,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     
     // Scene setup
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xf8fafc); // Light background
+    scene.background = new THREE.Color(0x5f9ea0); // Teal background color similar to the image
     
     // Camera setup for isometric view
     const aspect = mountRef.current.clientWidth / mountRef.current.clientHeight;
@@ -38,6 +38,8 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     // Renderer setup
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     mountRef.current.appendChild(renderer.domElement);
     
     // Add orbit controls with constraints
@@ -47,6 +49,9 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     controls.minDistance = 10;
     controls.maxDistance = 40;
     controls.maxPolarAngle = Math.PI / 2.5; // Limit vertical rotation
+    controls.enableRotate = true;
+    controls.rotateSpeed = 0.5;
+    controls.enableZoom = true;
     
     // Lighting
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
@@ -54,6 +59,9 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
     directionalLight.position.set(10, 20, 10);
+    directionalLight.castShadow = true;
+    directionalLight.shadow.mapSize.width = 2048;
+    directionalLight.shadow.mapSize.height = 2048;
     scene.add(directionalLight);
     
     // Raycaster for object selection
@@ -63,21 +71,38 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     // Map of all interactive objects
     const interactiveObjects: { [key: string]: THREE.Object3D } = {};
     
+    // Define room layout with walls
+    const rooms: { position: [number, number], width: number, height: number }[] = [
+      { position: [-7, -7], width: 6, height: 6 },
+      { position: [0, -7], width: 6, height: 6 },
+      { position: [-7, 0], width: 6, height: 6 },
+      { position: [0, 0], width: 6, height: 6 }
+    ];
+    
     // Materials
     const floorMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0xd1d5db, 
+      color: 0x417f81, // Darker teal for floor
       roughness: 0.7 
     });
     
-    const gridMaterial = new THREE.LineBasicMaterial({ 
-      color: 0x9ca3af, 
-      transparent: true,
-      opacity: 0.5
+    const wallMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0xf5f5f5, // Off-white for walls
+      roughness: 0.9 
     });
     
-    const wallMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0xe5e7eb, 
-      roughness: 0.9 
+    const bedFrameMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0xffffff, // White for bed frame
+      roughness: 0.4
+    });
+    
+    const bedSheetMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0x68b7b8, // Light teal for bedsheets
+      roughness: 0.5
+    });
+    
+    const nightstandMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0xf0f0f0, // Light gray for nightstand
+      roughness: 0.6
     });
     
     // Create floors
@@ -90,33 +115,83 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       // Floor base
       const floorGeometry = new THREE.BoxGeometry(20, 0.2, 20);
       const floorMesh = new THREE.Mesh(floorGeometry, floorMaterial);
-      floorMesh.position.set(0, floor.level * 2, 0);
+      floorMesh.position.set(0, floor.level * 3, 0);
+      floorMesh.receiveShadow = true;
       scene.add(floorMesh);
       
-      // Floor grid
-      const gridHelper = new THREE.GridHelper(20, 20, 0x9ca3af, 0x9ca3af);
-      gridHelper.position.set(0, floor.level * 2 + 0.1, 0);
-      gridHelper.rotation.x = Math.PI / 2;
-      scene.add(gridHelper);
-      
-      // Floor walls (simple rectangle walls)
-      const wallHeight = 1.8;
-      const wallThickness = 0.2;
-      
-      // Back wall
-      const backWallGeometry = new THREE.BoxGeometry(20, wallHeight, wallThickness);
-      const backWall = new THREE.Mesh(backWallGeometry, wallMaterial);
-      backWall.position.set(0, floor.level * 2 + wallHeight / 2, -10);
-      scene.add(backWall);
-      
-      // Side wall
-      const sideWallGeometry = new THREE.BoxGeometry(wallThickness, wallHeight, 20);
-      const sideWall = new THREE.Mesh(sideWallGeometry, wallMaterial);
-      sideWall.position.set(-10, floor.level * 2 + wallHeight / 2, 0);
-      scene.add(sideWall);
+      // Create rooms with walls
+      rooms.forEach(room => {
+        const [x, z] = room.position;
+        const y = floor.level * 3;
+        const width = room.width;
+        const height = room.height;
+        
+        // Room floor with slightly different color to distinguish rooms
+        const roomFloorGeometry = new THREE.BoxGeometry(width, 0.05, height);
+        const roomFloorMesh = new THREE.Mesh(roomFloorGeometry, floorMaterial);
+        roomFloorMesh.position.set(x + width/2, y + 0.12, z + height/2);
+        scene.add(roomFloorMesh);
+        
+        // Create walls
+        const wallHeight = 2.0;
+        const wallThickness = 0.15;
+        
+        // Back wall
+        const backWallGeometry = new THREE.BoxGeometry(width, wallHeight, wallThickness);
+        const backWall = new THREE.Mesh(backWallGeometry, wallMaterial);
+        backWall.position.set(x + width/2, y + wallHeight/2, z);
+        backWall.castShadow = true;
+        backWall.receiveShadow = true;
+        scene.add(backWall);
+        
+        // Left wall
+        const leftWallGeometry = new THREE.BoxGeometry(wallThickness, wallHeight, height);
+        const leftWall = new THREE.Mesh(leftWallGeometry, wallMaterial);
+        leftWall.position.set(x, y + wallHeight/2, z + height/2);
+        leftWall.castShadow = true;
+        leftWall.receiveShadow = true;
+        scene.add(leftWall);
+        
+        // Create door openings in some walls
+        if ((x === 0 && z === -7) || (x === -7 && z === 0)) {
+          // Right wall with door opening
+          const doorWidth = 1.5;
+          const wallSegmentWidth = (height - doorWidth) / 2;
+          
+          // Bottom wall segment
+          const bottomWallGeometry = new THREE.BoxGeometry(wallThickness, wallHeight, wallSegmentWidth);
+          const bottomWall = new THREE.Mesh(bottomWallGeometry, wallMaterial);
+          bottomWall.position.set(x + width, y + wallHeight/2, z + wallSegmentWidth/2);
+          bottomWall.castShadow = true;
+          bottomWall.receiveShadow = true;
+          scene.add(bottomWall);
+          
+          // Top wall segment
+          const topWallGeometry = new THREE.BoxGeometry(wallThickness, wallHeight, wallSegmentWidth);
+          const topWall = new THREE.Mesh(topWallGeometry, wallMaterial);
+          topWall.position.set(x + width, y + wallHeight/2, z + height - wallSegmentWidth/2);
+          topWall.castShadow = true;
+          topWall.receiveShadow = true;
+          scene.add(topWall);
+          
+          // Door frame top
+          const doorFrameTopGeometry = new THREE.BoxGeometry(wallThickness, 0.2, doorWidth);
+          const doorFrameTop = new THREE.Mesh(doorFrameTopGeometry, wallMaterial);
+          doorFrameTop.position.set(x + width, y + wallHeight - 0.1, z + height/2);
+          scene.add(doorFrameTop);
+        } else {
+          // Full right wall
+          const rightWallGeometry = new THREE.BoxGeometry(wallThickness, wallHeight, height);
+          const rightWall = new THREE.Mesh(rightWallGeometry, wallMaterial);
+          rightWall.position.set(x + width, y + wallHeight/2, z + height/2);
+          rightWall.castShadow = true;
+          rightWall.receiveShadow = true;
+          scene.add(rightWall);
+        }
+      });
     });
     
-    // Create beds
+    // Create beds and nightstands
     hospital.beds.forEach(bed => {
       const floorObj = hospital.floors.find(f => f.type === bed.floor);
       
@@ -126,69 +201,97 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       }
       
       // Bed status determines color
-      let bedColor: number;
+      let statusIndicatorColor: number;
       switch (bed.status) {
         case 'available':
-          bedColor = 0x4ade80; // Green
+          statusIndicatorColor = 0x4ade80; // Green
           break;
         case 'occupied':
-          bedColor = 0xf97316; // Orange
+          statusIndicatorColor = 0xf97316; // Orange
           break;
         case 'cleaning':
-          bedColor = 0x60a5fa; // Blue
+          statusIndicatorColor = 0x60a5fa; // Blue
           break;
         default:
-          bedColor = 0x9ca3af; // Gray
+          statusIndicatorColor = 0x9ca3af; // Gray
       }
       
-      // Create bed frame
-      const bedMaterial = new THREE.MeshStandardMaterial({ 
-        color: 0x94a3b8,
-        roughness: 0.7 
-      });
+      // Create bed group
+      const bedGroup = new THREE.Group();
       
-      const bedFrameGeometry = new THREE.BoxGeometry(1.4, 0.3, 2.2);
-      const bedFrame = new THREE.Mesh(bedFrameGeometry, bedMaterial);
-      bedFrame.position.set(
-        bed.position.x,
-        bed.position.y + 0.3,
-        bed.position.z
-      );
+      // Create bed frame
+      const bedFrameGeometry = new THREE.BoxGeometry(1.0, 0.3, 2.0);
+      const bedFrame = new THREE.Mesh(bedFrameGeometry, bedFrameMaterial);
+      bedFrame.position.set(0, 0.3, 0);
+      bedFrame.castShadow = true;
+      bedFrame.receiveShadow = true;
+      bedGroup.add(bedFrame);
       
       // Create bed mattress
-      const mattressMaterial = new THREE.MeshStandardMaterial({ 
-        color: bedColor,
-        roughness: 0.8 
-      });
+      const mattressGeometry = new THREE.BoxGeometry(0.9, 0.1, 1.8);
+      const mattress = new THREE.Mesh(mattressGeometry, bedSheetMaterial);
+      mattress.position.set(0, 0.4, 0);
+      mattress.castShadow = true;
+      bedGroup.add(mattress);
       
-      const mattressGeometry = new THREE.BoxGeometry(1.2, 0.15, 2);
-      const mattress = new THREE.Mesh(mattressGeometry, mattressMaterial);
-      mattress.position.set(
-        bed.position.x,
-        bed.position.y + 0.55,
-        bed.position.z
-      );
+      // Create pillow
+      const pillowGeometry = new THREE.BoxGeometry(0.8, 0.1, 0.4);
+      const pillowMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 });
+      const pillow = new THREE.Mesh(pillowGeometry, pillowMaterial);
+      pillow.position.set(0, 0.45, -0.65);
+      bedGroup.add(pillow);
       
       // Create legs
       const legGeometry = new THREE.BoxGeometry(0.1, 0.3, 0.1);
+      const legPositions = [
+        [-0.4, -0.15, 0.85],
+        [0.4, -0.15, 0.85],
+        [-0.4, -0.15, -0.85],
+        [0.4, -0.15, -0.85]
+      ];
       
-      for (let i = 0; i < 4; i++) {
-        const xOffset = i % 2 === 0 ? 0.6 : -0.6;
-        const zOffset = i < 2 ? 1 : -1;
+      legPositions.forEach(position => {
+        const leg = new THREE.Mesh(legGeometry, bedFrameMaterial);
+        leg.position.set(position[0], position[1], position[2]);
+        leg.castShadow = true;
+        bedGroup.add(leg);
+      });
+      
+      // Create status indicator (small sphere above bed)
+      if (bed.status !== 'available') {
+        const indicatorGeometry = new THREE.SphereGeometry(0.2, 16, 16);
+        const indicatorMaterial = new THREE.MeshStandardMaterial({ 
+          color: statusIndicatorColor,
+          emissive: statusIndicatorColor,
+          emissiveIntensity: 0.5,
+        });
         
-        const leg = new THREE.Mesh(legGeometry, bedMaterial);
-        leg.position.set(
-          bed.position.x + xOffset,
-          bed.position.y + 0.15,
-          bed.position.z + zOffset
-        );
-        scene.add(leg);
+        const indicator = new THREE.Mesh(indicatorGeometry, indicatorMaterial);
+        indicator.position.set(0, 1.5, -0.8);
+        
+        // Add pole for indicator
+        const poleGeometry = new THREE.CylinderGeometry(0.02, 0.02, 1.0, 8);
+        const poleMaterial = new THREE.MeshStandardMaterial({ color: 0xb0b0b0 });
+        const pole = new THREE.Mesh(poleGeometry, poleMaterial);
+        pole.position.set(0, 1.0, -0.8);
+        bedGroup.add(pole);
+        bedGroup.add(indicator);
       }
       
-      // Group the bed parts
-      const bedGroup = new THREE.Group();
-      bedGroup.add(bedFrame);
-      bedGroup.add(mattress);
+      // Create nightstand
+      const nightstandGeometry = new THREE.BoxGeometry(0.6, 0.6, 0.6);
+      const nightstand = new THREE.Mesh(nightstandGeometry, nightstandMaterial);
+      nightstand.position.set(-0.8, 0.3, -0.5);
+      nightstand.castShadow = true;
+      nightstand.receiveShadow = true;
+      bedGroup.add(nightstand);
+      
+      // Position the entire bed group
+      bedGroup.position.set(
+        bed.position.x,
+        bed.position.y,
+        bed.position.z
+      );
       scene.add(bedGroup);
       
       // Make bed interactive
@@ -214,29 +317,121 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
               patientColor = 0x9ca3af; // Gray
           }
           
-          // Create patient indicator (simple cylinder for now)
-          const patientGeometry = new THREE.CylinderGeometry(0.3, 0.3, 0.6, 16);
-          const patientMaterial = new THREE.MeshStandardMaterial({ 
-            color: patientColor,
-            roughness: 0.5 
+          // Create patient indicator (circle with person icon)
+          const patientGroup = new THREE.Group();
+          
+          // Circle background
+          const circleGeometry = new THREE.CircleGeometry(0.3, 32);
+          const circleMaterial = new THREE.MeshBasicMaterial({ 
+            color: 0x33a1c9, // Teal blue circle 
+            side: THREE.DoubleSide 
           });
           
-          const patientMesh = new THREE.Mesh(patientGeometry, patientMaterial);
-          patientMesh.position.set(
-            bed.position.x,
-            bed.position.y + 1,
-            bed.position.z
+          const circle = new THREE.Mesh(circleGeometry, circleMaterial);
+          circle.rotation.x = -Math.PI / 2;
+          patientGroup.add(circle);
+          
+          // Create simplified patient icon (small cylinder for head, box for body)
+          const headGeometry = new THREE.SphereGeometry(0.1, 16, 16);
+          const bodyGeometry = new THREE.BoxGeometry(0.15, 0.15, 0.2);
+          const patientMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+          
+          const head = new THREE.Mesh(headGeometry, patientMaterial);
+          head.position.y = 0.15;
+          patientGroup.add(head);
+          
+          const body = new THREE.Mesh(bodyGeometry, patientMaterial);
+          body.position.y = 0.01;
+          patientGroup.add(body);
+          
+          // Position the patient indicator near the bed
+          patientGroup.position.set(
+            bed.position.x + 0.7,
+            bed.position.y + 0.5,
+            bed.position.z - 0.3
           );
           
-          scene.add(patientMesh);
+          scene.add(patientGroup);
           
           // Make patient interactive
-          interactiveObjects[patient.id] = patientMesh;
+          interactiveObjects[patient.id] = patientGroup;
+          
+          // Add patient status indicator if critical
+          if (patient.status === 'critical') {
+            const alertGeometry = new THREE.ConeGeometry(0.15, 0.3, 16);
+            const alertMaterial = new THREE.MeshStandardMaterial({ 
+              color: 0xef4444,
+              emissive: 0xef4444,
+              emissiveIntensity: 0.5
+            });
+            
+            const alert = new THREE.Mesh(alertGeometry, alertMaterial);
+            alert.position.set(
+              bed.position.x - 0.7,
+              bed.position.y + 1.5,
+              bed.position.z
+            );
+            
+            const alertPole = new THREE.CylinderGeometry(0.02, 0.02, 1.0, 8);
+            const alertPoleMaterial = new THREE.MeshStandardMaterial({ color: 0xb0b0b0 });
+            const pole = new THREE.Mesh(alertPole, alertPoleMaterial);
+            pole.position.set(
+              bed.position.x - 0.7,
+              bed.position.y + 1.0,
+              bed.position.z
+            );
+            
+            scene.add(pole);
+            scene.add(alert);
+          }
+          
+          // If staff assigned to patient, add staff indicators
+          if (patient.assignedStaffIds.length > 0) {
+            patient.assignedStaffIds.forEach((staffId, index) => {
+              const staff = hospital.staff.find(s => s.id === staffId);
+              if (staff) {
+                // Create staff indicator
+                const staffGroup = new THREE.Group();
+                
+                // Circle background
+                const staffCircleGeometry = new THREE.CircleGeometry(0.25, 32);
+                const staffCircleMaterial = new THREE.MeshBasicMaterial({ 
+                  color: 0x33a1c9, // Teal blue circle
+                  side: THREE.DoubleSide 
+                });
+                
+                const staffCircle = new THREE.Mesh(staffCircleGeometry, staffCircleMaterial);
+                staffCircle.rotation.x = -Math.PI / 2;
+                staffGroup.add(staffCircle);
+                
+                // Create simplified staff icon
+                const staffHeadGeometry = new THREE.SphereGeometry(0.08, 16, 16);
+                const staffBodyGeometry = new THREE.BoxGeometry(0.12, 0.12, 0.16);
+                const staffMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+                
+                const staffHead = new THREE.Mesh(staffHeadGeometry, staffMaterial);
+                staffHead.position.y = 0.12;
+                staffGroup.add(staffHead);
+                
+                const staffBody = new THREE.Mesh(staffBodyGeometry, staffMaterial);
+                staffBody.position.y = 0.01;
+                staffGroup.add(staffBody);
+                
+                // Position the staff indicator near the bed, offset by index
+                staffGroup.position.set(
+                  bed.position.x + 0.5 + (index * 0.6),
+                  bed.position.y + 0.5,
+                  bed.position.z + 0.5
+                );
+                
+                scene.add(staffGroup);
+              }
+            });
+          }
         }
       }
       
       // Add room label
-      const roomLabelGeometry = new THREE.PlaneGeometry(1, 0.5);
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
       
@@ -259,11 +454,12 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
           side: THREE.DoubleSide
         });
         
+        const roomLabelGeometry = new THREE.PlaneGeometry(0.8, 0.4);
         const label = new THREE.Mesh(roomLabelGeometry, labelMaterial);
         label.position.set(
           bed.position.x,
-          bed.position.y + 1.8,
-          bed.position.z
+          bed.position.y + 1.3,
+          bed.position.z - 0.3
         );
         label.rotation.x = -Math.PI / 4;
         
