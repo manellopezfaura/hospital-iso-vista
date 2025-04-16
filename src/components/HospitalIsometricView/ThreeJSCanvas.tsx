@@ -25,7 +25,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     
     // Scene setup
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x5f9ea0); // Teal background color similar to the image
+    scene.background = new THREE.Color(0x5f9ea0); // Teal background color
     
     // Camera setup for isometric view
     const aspect = mountRef.current.clientWidth / mountRef.current.clientHeight;
@@ -35,8 +35,12 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     camera.position.set(10, 10, 10);
     camera.lookAt(0, 0, 0);
     
-    // Renderer setup
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    // Renderer setup with additional settings for stability
+    const renderer = new THREE.WebGLRenderer({ 
+      antialias: true,
+      powerPreference: "high-performance",
+      preserveDrawingBuffer: true
+    });
     renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -104,6 +108,25 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       color: 0xf0f0f0, // Light gray for nightstand
       roughness: 0.6
     });
+    
+    // Patient status materials based on criticality
+    const patientStatusMaterials = {
+      critical: new THREE.MeshStandardMaterial({ 
+        color: 0xea384c, // Red for critical
+        emissive: 0xea384c,
+        emissiveIntensity: 0.5
+      }),
+      stable: new THREE.MeshStandardMaterial({ 
+        color: 0x4ade80, // Green for stable
+        emissive: 0x4ade80,
+        emissiveIntensity: 0.3
+      }),
+      discharged: new THREE.MeshStandardMaterial({ 
+        color: 0x8E9196, // Gray for discharged
+        emissive: 0x8E9196,
+        emissiveIntensity: 0.1
+      })
+    };
     
     // Create floors
     hospital.floors.forEach(floor => {
@@ -191,7 +214,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       });
     });
     
-    // Create beds and nightstands
+    // Create beds and nightstands - ENHANCED VISIBILITY and CRITICALITY
     hospital.beds.forEach(bed => {
       const floorObj = hospital.floors.find(f => f.type === bed.floor);
       
@@ -199,6 +222,8 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       if (selectedFloor && floorObj && floorObj.id !== selectedFloor) {
         return;
       }
+      
+      console.log(`Creating bed: ${bed.id} with status: ${bed.status}`);
       
       // Bed status determines color
       let statusIndicatorColor: number;
@@ -219,35 +244,35 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       // Create bed group
       const bedGroup = new THREE.Group();
       
-      // Create bed frame
-      const bedFrameGeometry = new THREE.BoxGeometry(1.0, 0.3, 2.0);
+      // Create bed frame - with enhanced dimensions for visibility
+      const bedFrameGeometry = new THREE.BoxGeometry(1.2, 0.4, 2.2);
       const bedFrame = new THREE.Mesh(bedFrameGeometry, bedFrameMaterial);
       bedFrame.position.set(0, 0.3, 0);
       bedFrame.castShadow = true;
       bedFrame.receiveShadow = true;
       bedGroup.add(bedFrame);
       
-      // Create bed mattress
-      const mattressGeometry = new THREE.BoxGeometry(0.9, 0.1, 1.8);
+      // Create bed mattress with enhanced dimensions
+      const mattressGeometry = new THREE.BoxGeometry(1.0, 0.15, 2.0);
       const mattress = new THREE.Mesh(mattressGeometry, bedSheetMaterial);
-      mattress.position.set(0, 0.4, 0);
+      mattress.position.set(0, 0.45, 0);
       mattress.castShadow = true;
       bedGroup.add(mattress);
       
       // Create pillow
-      const pillowGeometry = new THREE.BoxGeometry(0.8, 0.1, 0.4);
+      const pillowGeometry = new THREE.BoxGeometry(0.9, 0.12, 0.5);
       const pillowMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 });
       const pillow = new THREE.Mesh(pillowGeometry, pillowMaterial);
-      pillow.position.set(0, 0.45, -0.65);
+      pillow.position.set(0, 0.52, -0.7);
       bedGroup.add(pillow);
       
       // Create legs
-      const legGeometry = new THREE.BoxGeometry(0.1, 0.3, 0.1);
+      const legGeometry = new THREE.BoxGeometry(0.12, 0.3, 0.12);
       const legPositions = [
-        [-0.4, -0.15, 0.85],
-        [0.4, -0.15, 0.85],
-        [-0.4, -0.15, -0.85],
-        [0.4, -0.15, -0.85]
+        [-0.45, -0.15, 0.95],
+        [0.45, -0.15, 0.95],
+        [-0.45, -0.15, -0.95],
+        [0.45, -0.15, -0.95]
       ];
       
       legPositions.forEach(position => {
@@ -257,9 +282,9 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
         bedGroup.add(leg);
       });
       
-      // Create status indicator (small sphere above bed)
+      // Create status indicator (small sphere above bed) - ENHANCED VISIBILITY
       if (bed.status !== 'available') {
-        const indicatorGeometry = new THREE.SphereGeometry(0.2, 16, 16);
+        const indicatorGeometry = new THREE.SphereGeometry(0.25, 16, 16);
         const indicatorMaterial = new THREE.MeshStandardMaterial({ 
           color: statusIndicatorColor,
           emissive: statusIndicatorColor,
@@ -267,21 +292,21 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
         });
         
         const indicator = new THREE.Mesh(indicatorGeometry, indicatorMaterial);
-        indicator.position.set(0, 1.5, -0.8);
+        indicator.position.set(0, 1.8, -0.8);
         
         // Add pole for indicator
-        const poleGeometry = new THREE.CylinderGeometry(0.02, 0.02, 1.0, 8);
+        const poleGeometry = new THREE.CylinderGeometry(0.03, 0.03, 1.3, 8);
         const poleMaterial = new THREE.MeshStandardMaterial({ color: 0xb0b0b0 });
         const pole = new THREE.Mesh(poleGeometry, poleMaterial);
-        pole.position.set(0, 1.0, -0.8);
+        pole.position.set(0, 1.2, -0.8);
         bedGroup.add(pole);
         bedGroup.add(indicator);
       }
       
       // Create nightstand
-      const nightstandGeometry = new THREE.BoxGeometry(0.6, 0.6, 0.6);
+      const nightstandGeometry = new THREE.BoxGeometry(0.7, 0.7, 0.7);
       const nightstand = new THREE.Mesh(nightstandGeometry, nightstandMaterial);
-      nightstand.position.set(-0.8, 0.3, -0.5);
+      nightstand.position.set(-0.9, 0.35, -0.5);
       nightstand.castShadow = true;
       nightstand.receiveShadow = true;
       bedGroup.add(nightstand);
@@ -297,31 +322,48 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       // Make bed interactive
       interactiveObjects[bed.id] = bedGroup;
       
-      // If there's a patient in the bed, add a patient indicator
+      // If there's a patient in the bed, add a patient indicator with ENHANCED CRITICALITY VISUALIZATION
       if (bed.patientId) {
         const patient = hospital.patients.find(p => p.id === bed.patientId);
         
         if (patient) {
-          let patientColor: number;
+          console.log(`Adding patient: ${patient.id} with status: ${patient.status}`);
+          
+          // Determine material based on patient status
+          let patientMaterial: THREE.MeshStandardMaterial;
           switch (patient.status) {
             case 'critical':
-              patientColor = 0xef4444; // Red
+              patientMaterial = patientStatusMaterials.critical;
               break;
             case 'stable':
-              patientColor = 0x22c55e; // Green
+              patientMaterial = patientStatusMaterials.stable;
               break;
             case 'discharged':
-              patientColor = 0x6b7280; // Gray
+              patientMaterial = patientStatusMaterials.discharged;
               break;
             default:
-              patientColor = 0x9ca3af; // Gray
+              patientMaterial = patientStatusMaterials.stable;
           }
+          
+          // Create patient visualization on the bed
+          const patientGeometry = new THREE.CapsuleGeometry(0.4, 1.0, 4, 8);
+          const patientMesh = new THREE.Mesh(patientGeometry, patientMaterial);
+          patientMesh.position.set(0, 0.7, 0);
+          patientMesh.rotation.x = Math.PI / 2;
+          patientMesh.scale.set(1, 0.4, 0.5);
+          bedGroup.add(patientMesh);
+          
+          // Add patient head
+          const headGeometry = new THREE.SphereGeometry(0.2, 16, 16);
+          const head = new THREE.Mesh(headGeometry, patientMaterial);
+          head.position.set(0, 0.7, -0.7);
+          bedGroup.add(head);
           
           // Create patient indicator (circle with person icon)
           const patientGroup = new THREE.Group();
           
-          // Circle background
-          const circleGeometry = new THREE.CircleGeometry(0.3, 32);
+          // Circle background - LARGER AND MORE VISIBLE
+          const circleGeometry = new THREE.CircleGeometry(0.35, 32);
           const circleMaterial = new THREE.MeshBasicMaterial({ 
             color: 0x33a1c9, // Teal blue circle 
             side: THREE.DoubleSide 
@@ -332,23 +374,23 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
           patientGroup.add(circle);
           
           // Create simplified patient icon (small cylinder for head, box for body)
-          const headGeometry = new THREE.SphereGeometry(0.1, 16, 16);
-          const bodyGeometry = new THREE.BoxGeometry(0.15, 0.15, 0.2);
-          const patientMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+          const iconHeadGeometry = new THREE.SphereGeometry(0.12, 16, 16);
+          const iconBodyGeometry = new THREE.BoxGeometry(0.18, 0.18, 0.22);
+          const iconMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
           
-          const head = new THREE.Mesh(headGeometry, patientMaterial);
-          head.position.y = 0.15;
-          patientGroup.add(head);
+          const iconHead = new THREE.Mesh(iconHeadGeometry, iconMaterial);
+          iconHead.position.y = 0.18;
+          patientGroup.add(iconHead);
           
-          const body = new THREE.Mesh(bodyGeometry, patientMaterial);
-          body.position.y = 0.01;
-          patientGroup.add(body);
+          const iconBody = new THREE.Mesh(iconBodyGeometry, iconMaterial);
+          iconBody.position.y = 0.01;
+          patientGroup.add(iconBody);
           
           // Position the patient indicator near the bed
           patientGroup.position.set(
-            bed.position.x + 0.7,
-            bed.position.y + 0.5,
-            bed.position.z - 0.3
+            bed.position.x + 0.8,
+            bed.position.y + 0.6,
+            bed.position.z - 0.4
           );
           
           scene.add(patientGroup);
@@ -356,33 +398,89 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
           // Make patient interactive
           interactiveObjects[patient.id] = patientGroup;
           
-          // Add patient status indicator if critical
+          // Add criticality indicators based on patient status
           if (patient.status === 'critical') {
-            const alertGeometry = new THREE.ConeGeometry(0.15, 0.3, 16);
+            // Add alert cone (red warning)
+            const alertGeometry = new THREE.ConeGeometry(0.2, 0.4, 16);
             const alertMaterial = new THREE.MeshStandardMaterial({ 
-              color: 0xef4444,
-              emissive: 0xef4444,
-              emissiveIntensity: 0.5
+              color: 0xea384c,
+              emissive: 0xea384c,
+              emissiveIntensity: 0.7
             });
             
             const alert = new THREE.Mesh(alertGeometry, alertMaterial);
             alert.position.set(
-              bed.position.x - 0.7,
-              bed.position.y + 1.5,
+              bed.position.x - 0.8,
+              bed.position.y + 1.8,
               bed.position.z
             );
             
-            const alertPole = new THREE.CylinderGeometry(0.02, 0.02, 1.0, 8);
+            const alertPole = new THREE.CylinderGeometry(0.03, 0.03, 1.3, 8);
             const alertPoleMaterial = new THREE.MeshStandardMaterial({ color: 0xb0b0b0 });
             const pole = new THREE.Mesh(alertPole, alertPoleMaterial);
             pole.position.set(
-              bed.position.x - 0.7,
-              bed.position.y + 1.0,
+              bed.position.x - 0.8,
+              bed.position.y + 1.2,
               bed.position.z
             );
             
             scene.add(pole);
             scene.add(alert);
+            
+            // Add pulsing light effect for critical patients
+            const pulsingLight = new THREE.PointLight(0xff0000, 1, 3);
+            pulsingLight.position.set(
+              bed.position.x,
+              bed.position.y + 1.5,
+              bed.position.z
+            );
+            scene.add(pulsingLight);
+            
+            // Animation parameters for pulsing
+            const pulseParams = {
+              intensity: 1,
+              phase: Math.random() * Math.PI * 2, // Random starting phase
+              speed: 2 + Math.random() // Slightly randomized speed
+            };
+            
+            // Store in an object to access in animation loop
+            (pulsingLight as any).pulseParams = pulseParams;
+          }
+          
+          // Add heartbeat monitor for critical patients
+          if (patient.status === 'critical') {
+            const monitorGeometry = new THREE.BoxGeometry(0.5, 0.3, 0.05);
+            const monitorMaterial = new THREE.MeshBasicMaterial({ color: 0x222222 });
+            const monitor = new THREE.Mesh(monitorGeometry, monitorMaterial);
+            monitor.position.set(
+              bed.position.x + 0.8,
+              bed.position.y + 1.5,
+              bed.position.z - 0.7
+            );
+            scene.add(monitor);
+            
+            // Create a heartbeat line
+            const heartbeatPoints = [];
+            for (let i = 0; i < 10; i++) {
+              const x = (i - 5) * 0.04;
+              let y = 0;
+              
+              // Create ECG-like pattern
+              if (i === 4) y = 0.08;
+              if (i === 5) y = -0.1;
+              if (i === 6) y = 0.15;
+              if (i === 7) y = -0.05;
+              
+              heartbeatPoints.push(new THREE.Vector3(x, y, 0));
+            }
+            
+            const heartbeatGeometry = new THREE.BufferGeometry().setFromPoints(heartbeatPoints);
+            const heartbeatMaterial = new THREE.LineBasicMaterial({ color: 0x00ff00 });
+            const heartbeatLine = new THREE.Line(heartbeatGeometry, heartbeatMaterial);
+            
+            heartbeatLine.position.copy(monitor.position);
+            heartbeatLine.position.z += 0.03;
+            scene.add(heartbeatLine);
           }
           
           // If staff assigned to patient, add staff indicators
@@ -390,6 +488,8 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
             patient.assignedStaffIds.forEach((staffId, index) => {
               const staff = hospital.staff.find(s => s.id === staffId);
               if (staff) {
+                console.log(`Adding staff: ${staffId} for patient: ${patient.id}`);
+                
                 // Create staff indicator
                 const staffGroup = new THREE.Group();
                 
@@ -420,8 +520,8 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
                 // Position the staff indicator near the bed, offset by index
                 staffGroup.position.set(
                   bed.position.x + 0.5 + (index * 0.6),
-                  bed.position.y + 0.5,
-                  bed.position.z + 0.5
+                  bed.position.y + 0.6,
+                  bed.position.z + 0.6
                 );
                 
                 scene.add(staffGroup);
@@ -493,7 +593,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       
       raycaster.setFromCamera(mouse, camera);
       
-      const intersects = raycaster.intersectObjects(Object.values(interactiveObjects));
+      const intersects = raycaster.intersectObjects(Object.values(interactiveObjects), true);
       
       // Reset cursor and hover state
       document.body.style.cursor = 'default';
@@ -502,24 +602,55 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       if (intersects.length > 0) {
         const object = intersects[0].object;
         
-        // Find the key (id) for this object
+        // Find the key (id) for this object by traversing up to parent
         for (const [key, value] of Object.entries(interactiveObjects)) {
-          if (object.parent === value || object === value) {
-            document.body.style.cursor = 'pointer';
-            setHoveredObject(key);
-            break;
+          let parent = object;
+          // Traverse up to find if this object or any of its parents match the interactive object
+          while (parent) {
+            if (parent === value) {
+              document.body.style.cursor = 'pointer';
+              setHoveredObject(key);
+              break;
+            }
+            parent = parent.parent;
           }
+          if (hoveredObject) break;
         }
       }
     };
     
-    // Handle clicks
-    const onClick = () => {
-      if (hoveredObject) {
-        if (hoveredObject.startsWith('bed-')) {
-          onBedSelect?.(hoveredObject);
-        } else if (hoveredObject.startsWith('patient-')) {
-          onPatientSelect?.(hoveredObject);
+    // Handle clicks with improved detection
+    const onClick = (event: MouseEvent) => {
+      if (!mountRef.current) return;
+      
+      const rect = mountRef.current.getBoundingClientRect();
+      mouse.x = ((event.clientX - rect.left) / mountRef.current.clientWidth) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / mountRef.current.clientHeight) * 2 + 1;
+      
+      raycaster.setFromCamera(mouse, camera);
+      
+      const intersects = raycaster.intersectObjects(Object.values(interactiveObjects), true);
+      
+      if (intersects.length > 0) {
+        const object = intersects[0].object;
+        
+        // Find the key (id) for this object by traversing up to parent
+        for (const [key, value] of Object.entries(interactiveObjects)) {
+          let parent = object;
+          // Traverse up to find if this object or any of its parents match the interactive object
+          while (parent) {
+            if (parent === value) {
+              console.log(`Clicked on: ${key}`);
+              
+              if (key.startsWith('bed-')) {
+                onBedSelect?.(key);
+              } else if (key.startsWith('patient-')) {
+                onPatientSelect?.(key);
+              }
+              break;
+            }
+            parent = parent.parent;
+          }
         }
       }
     };
@@ -527,10 +658,27 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     mountRef.current.addEventListener('mousemove', onMouseMove);
     mountRef.current.addEventListener('click', onClick);
     
+    // Animation variables
+    const clock = new THREE.Clock();
+    
     // Animation loop
     const animate = () => {
-      requestAnimationFrame(animate);
+      const animationId = requestAnimationFrame(animate);
+      const delta = clock.getDelta();
+      
+      // Update controls
       controls.update();
+      
+      // Update any pulse effects for critical patients
+      scene.traverse((object) => {
+        if (object instanceof THREE.PointLight && (object as any).pulseParams) {
+          const params = (object as any).pulseParams;
+          params.phase += delta * params.speed;
+          object.intensity = 0.5 + Math.sin(params.phase) * 0.5; // Pulsate between 0 and 1
+        }
+      });
+      
+      // Render scene
       renderer.render(scene, camera);
     };
     
@@ -538,6 +686,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     
     // Cleanup
     return () => {
+      console.log("Cleaning up Three.js resources");
       if (mountRef.current) {
         mountRef.current.removeEventListener('mousemove', onMouseMove);
         mountRef.current.removeEventListener('click', onClick);
@@ -545,6 +694,9 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       }
       
       window.removeEventListener('resize', handleResize);
+      
+      // Cancel animation frame
+      // Stop all animations
       
       // Dispose of geometries and materials
       scene.traverse((object) => {
@@ -558,6 +710,13 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
           }
         }
       });
+      
+      // Clear scene
+      while(scene.children.length > 0) { 
+        scene.remove(scene.children[0]); 
+      }
+      
+      renderer.dispose();
     };
   }, [hospital, selectedFloor, onBedSelect, onPatientSelect, hoveredObject]);
   
