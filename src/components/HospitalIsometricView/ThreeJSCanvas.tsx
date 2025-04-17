@@ -23,6 +23,10 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
   const mountRef = useRef<HTMLDivElement>(null);
   const [hoveredObject, setHoveredObject] = useState<string | null>(null);
   
+  const positionToVector3 = (position: Position): THREE.Vector3 => {
+    return new THREE.Vector3(position.x, position.y, position.z);
+  };
+  
   const createHospitalBed = (position: THREE.Vector3, id: string): THREE.Group => {
     const bedGroup = new THREE.Group();
     
@@ -372,7 +376,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       })
     };
     
-    const createEquipment = (type: string, position: THREE.Vector3, status: 'working' | 'maintenance' | 'offline' = 'working') => {
+    const createEquipment = (type: string, position: THREE.Vector3, equipmentId: string, status: 'working' | 'maintenance' | 'offline' = 'working') => {
       const group = new THREE.Group();
       let statusLight: THREE.Mesh;
       const statusMaterial = equipmentMaterials[status];
@@ -642,31 +646,164 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       }
       
       group.position.copy(position);
-      group.userData.id = id;
+      group.userData.id = equipmentId;
       group.userData.type = type;
       
       return group;
     };
     
-    // Add floors, beds, and patients to the scene
+    const floorGeometry = new THREE.BoxGeometry(25, 0.2, 25);
+    
     floors.forEach(floor => {
       const floorMesh = new THREE.Mesh(floorGeometry, floorMaterial);
-      floorMesh.position.y = floor.position.y;
+      floorMesh.position.y = floor.level * 2;
       scene.add(floorMesh);
     });
     
     beds.forEach(bed => {
-      const bedMesh = createHospitalBed(bed.position, bed.id);
+      const bedPosition = positionToVector3(bed.position);
+      const bedMesh = createHospitalBed(bedPosition, bed.id);
       scene.add(bedMesh);
+      interactiveObjects[bed.id] = bedMesh;
     });
     
     patients.forEach(patient => {
-      const patientMesh = createPatient(patient.position, patient.id, patient.status, patient.selected);
-      scene.add(patientMesh);
+      if (patient.bedId) {
+        const associatedBed = beds.find(b => b.id === patient.bedId);
+        if (associatedBed) {
+          const bedPosition = associatedBed.position;
+          const patientPosition = new THREE.Vector3(bedPosition.x, bedPosition.y + 0.45, bedPosition.z);
+          
+          const isSelected = patient.id === selectedPatientId;
+          
+          const patientMesh = createPatient(patientPosition, patient.id, patient.status, isSelected);
+          scene.add(patientMesh);
+          interactiveObjects[patient.id] = patientMesh;
+          patientGroups[patient.id] = patientMesh;
+        }
+      }
     });
     
-    renderer.render(scene, camera);
-  }, [mountRef, hospital, selectedFloor, selectedPatientId, isDarkMode]);
+    const handleMouseMove = (event: MouseEvent) => {
+      const rect = mountRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      
+      raycaster.setFromCamera(mouse, camera);
+      
+      const intersects = raycaster.intersectObjects(Object.values(interactiveObjects), true);
+      
+      if (intersects.length > 0) {
+        let object = intersects[0].object;
+        
+        while (object && !object.userData.id) {
+          object = object.parent as THREE.Object3D;
+        }
+        
+        if (object && object.userData.id) {
+          document.body.style.cursor = 'pointer';
+          
+          if (hoveredObject !== object.userData.id) {
+            setHoveredObject(object.userData.id);
+            
+            if (object.userData.type === 'bed') {
+              const bed = object as THREE.Group;
+              bed.scale.set(1.05, 1.05, 1.05);
+            } else if (object.userData.type === 'patient') {
+              const patient = object as THREE.Group;
+              patient.position.y += 0.1;
+            }
+          }
+        } else {
+          document.body.style.cursor = 'auto';
+          resetHighlights();
+        }
+      } else {
+        document.body.style.cursor = 'auto';
+        resetHighlights();
+      }
+    };
+    
+    const resetHighlights = () => {
+      if (hoveredObject) {
+        const object = interactiveObjects[hoveredObject];
+        
+        if (object) {
+          if (object.userData.type === 'bed') {
+            object.scale.set(1, 1, 1);
+          } else if (object.userData.type === 'patient') {
+            const patient = hospital.patients.find(p => p.id === object.userData.id);
+            if (patient && patient.bedId) {
+              const bed = hospital.beds.find(b => b.id === patient.bedId);
+              if (bed) {
+                const position = positionToVector3(bed.position);
+                object.position.y = position.y + 0.45;
+              }
+            }
+          }
+        }
+        
+        setHoveredObject(null);
+      }
+    };
+    
+    const handleClick = (event: MouseEvent) => {
+      const rect = mountRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      
+      raycaster.setFromCamera(mouse, camera);
+      
+      const intersects = raycaster.intersectObjects(Object.values(interactiveObjects), true);
+      
+      if (intersects.length > 0) {
+        let object = intersects[0].object;
+        
+        while (object && !object.userData.id) {
+          object = object.parent as THREE.Object3D;
+        }
+        
+        if (object && object.userData.id) {
+          if (object.userData.type === 'bed' && onBedSelect) {
+            onBedSelect(object.userData.id);
+          } else if (object.userData.type === 'patient' && onPatientSelect) {
+            onPatientSelect(object.userData.id);
+          }
+        }
+      }
+    };
+    
+    const animate = () => {
+      requestAnimationFrame(animate);
+      
+      controls.update();
+      
+      renderer.render(scene, camera);
+    };
+    
+    animate();
+    
+    mountRef.current.addEventListener('mousemove', handleMouseMove);
+    mountRef.current.addEventListener('click', handleClick);
+    
+    return () => {
+      if (mountRef.current) {
+        mountRef.current.removeEventListener('mousemove', handleMouseMove);
+        mountRef.current.removeEventListener('click', handleClick);
+        mountRef.current.removeChild(renderer.domElement);
+      }
+      
+      renderer.dispose();
+      
+      Object.values(interactiveObjects).forEach(object => {
+        scene.remove(object);
+      });
+    };
+  }, [mountRef, hospital, selectedFloor, selectedPatientId, isDarkMode, onBedSelect, onPatientSelect]);
   
   return (
     <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
