@@ -359,7 +359,8 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
           // Animate the screen
           const animateScreen = () => {
             const time = Date.now() * 0.001;
-            screen.material.emissiveIntensity = 0.3 + Math.sin(time * 2) * 0.1;
+            const screenMat = screen.material as THREE.MeshStandardMaterial;
+            screenMat.emissiveIntensity = 0.3 + Math.sin(time * 2) * 0.1;
           };
           (screen as any).animate = animateScreen;
           
@@ -404,7 +405,8 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
           // Animate the screen
           const animateScreen = () => {
             const time = Date.now() * 0.001;
-            screen.material.emissiveIntensity = 0.4 + Math.sin(time * 4) * 0.2;
+            const screenMat = screen.material as THREE.MeshStandardMaterial;
+            screenMat.emissiveIntensity = 0.4 + Math.sin(time * 4) * 0.2;
           };
           (screen as any).animate = animateScreen;
           
@@ -461,7 +463,8 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
           // Animate screen 
           const animateScreen = () => {
             const time = Date.now() * 0.001;
-            screen.material.emissiveIntensity = 0.3 + Math.sin(time * 2) * 0.1;
+            const screenMat = screen.material as THREE.MeshStandardMaterial;
+            screenMat.emissiveIntensity = 0.3 + Math.sin(time * 2) * 0.1;
           };
           (screen as any).animate = animateScreen;
           
@@ -512,7 +515,8 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
           // Animate the screen
           const animateScreen = () => {
             const time = Date.now() * 0.001;
-            screen.material.emissiveIntensity = 0.3 + Math.sin(time * 1.5) * 0.15;
+            const screenMat = screen.material as THREE.MeshStandardMaterial;
+            screenMat.emissiveIntensity = 0.3 + Math.sin(time * 1.5) * 0.15;
           };
           (screen as any).animate = animateScreen;
           
@@ -566,7 +570,8 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
           const animateLight = () => {
             if (status === 'working') {
               const time = Date.now() * 0.001;
-              lens.material.opacity = 0.8 + Math.sin(time) * 0.1;
+              const lensMat = lens.material as THREE.MeshBasicMaterial;
+              lensMat.opacity = 0.8 + Math.sin(time) * 0.1;
             }
           };
           (lens as any).animate = animateLight;
@@ -631,7 +636,8 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
           // Animate the monitor
           const animateMonitor = () => {
             const time = Date.now() * 0.001;
-            monitor.material.emissiveIntensity = 0.5 + Math.sin(time * 3) * 0.2;
+            const monitorMat = monitor.material as THREE.MeshStandardMaterial;
+            monitorMat.emissiveIntensity = 0.5 + Math.sin(time * 3) * 0.2;
           };
           (monitor as any).animate = animateMonitor;
           
@@ -767,10 +773,11 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
           // Animate the screen
           const animateScreen = () => {
             const time = Date.now() * 0.001;
+            const screenMat = screen.material as THREE.MeshStandardMaterial;
             if (status === 'working') {
-              screen.material.emissiveIntensity = 0.4 + Math.sin(time * 5) * 0.3; // Fast blinking for crash cart
+              screenMat.emissiveIntensity = 0.4 + Math.sin(time * 5) * 0.3; // Fast blinking for crash cart
             } else {
-              screen.material.emissiveIntensity = 0.1;
+              screenMat.emissiveIntensity = 0.1;
             }
           };
           (screen as any).animate = animateScreen;
@@ -801,12 +808,13 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       // Add pulsing effect to status light
       const animateStatusLight = () => {
         const time = Date.now() * 0.001;
+        const statusLightMat = statusLight.material as THREE.MeshStandardMaterial;
         if (status === 'working') {
-          statusLight.material.emissiveIntensity = 0.5 + Math.sin(time * 1) * 0.2;
+          statusLightMat.emissiveIntensity = 0.5 + Math.sin(time * 1) * 0.2;
         } else if (status === 'maintenance') {
-          statusLight.material.emissiveIntensity = 0.5 + Math.sin(time * 4) * 0.3; // Faster blink for maintenance
+          statusLightMat.emissiveIntensity = 0.5 + Math.sin(time * 4) * 0.3; // Faster blink for maintenance
         } else {
-          statusLight.material.emissiveIntensity = 0.2 + Math.sin(time * 8) * 0.1; // Very fast blink for offline
+          statusLightMat.emissiveIntensity = 0.2 + Math.sin(time * 8) * 0.1; // Very fast blink for offline
         }
       };
       
@@ -918,7 +926,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       // Create rooms using the floor layout
       layout.rooms.forEach(room => {
         const [x, z] = room.position;
-        const y = floor.level * 3 + verticalOffset;
+        const floorY = floor.level * 3 + verticalOffset;
         const width = room.width;
         const height = room.height;
         
@@ -933,7 +941,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
         const roomFloorMesh = new THREE.Mesh(roomFloorGeometry, roomFloorMaterial);
         roomFloorMesh.position.set(
           x + width/2 + horizontalOffset, 
-          y + 0.12, 
+          floorY + 0.12, 
           z + height/2
         );
         roomFloorMesh.receiveShadow = true;
@@ -960,7 +968,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
         const backWall = new THREE.Mesh(backWallGeometry, glassWallMaterial);
         backWall.position.set(
           x + width/2 + horizontalOffset, 
-          y + wallHeight/2, 
+          floorY + wallHeight/2, 
           z
         );
         backWall.castShadow = true;
@@ -972,7 +980,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
         const leftWall = new THREE.Mesh(leftWallGeometry, glassWallMaterial);
         leftWall.position.set(
           x + horizontalOffset, 
-          y + wallHeight/2, 
+          floorY + wallHeight/2, 
           z + height/2
         );
         leftWall.castShadow = true;
@@ -988,7 +996,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
         const bottomWall = new THREE.Mesh(bottomWallGeometry, glassWallMaterial);
         bottomWall.position.set(
           x + width + horizontalOffset, 
-          y + wallHeight/2, 
+          floorY + wallHeight/2, 
           z + wallSegmentWidth/2
         );
         bottomWall.castShadow = true;
@@ -1000,7 +1008,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
         const topWall = new THREE.Mesh(topWallGeometry, glassWallMaterial);
         topWall.position.set(
           x + width + horizontalOffset, 
-          y + wallHeight/2, 
+          floorY + wallHeight/2, 
           z + height - wallSegmentWidth/2
         );
         topWall.castShadow = true;
@@ -1018,7 +1026,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
         const doorFrameTop = new THREE.Mesh(doorFrameTopGeometry, doorFrameMaterial);
         doorFrameTop.position.set(
           x + width + horizontalOffset, 
-          y + wallHeight - 0.1, 
+          floorY + wallHeight - 0.1, 
           z + height/2
         );
         scene.add(doorFrameTop);
@@ -1028,7 +1036,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
         const leftFrame = new THREE.Mesh(leftFrameGeometry, doorFrameMaterial);
         leftFrame.position.set(
           x + width + horizontalOffset,
-          y + wallHeight/2,
+          floorY + wallHeight/2,
           z + height/2 - doorWidth/2
         );
         scene.add(leftFrame);
@@ -1036,7 +1044,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
         const rightFrame = new THREE.Mesh(leftFrameGeometry, doorFrameMaterial);
         rightFrame.position.set(
           x + width + horizontalOffset,
-          y + wallHeight/2,
+          floorY + wallHeight/2,
           z + height/2 + doorWidth/2
         );
         scene.add(rightFrame);
@@ -1047,7 +1055,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
             // Random position within the room
             const equipPos = new THREE.Vector3(
               x + width * 0.3 + (index % 2) * width * 0.4 + horizontalOffset,
-              y + 0,
+              floorY + 0,
               z + height * 0.3 + Math.floor(index / 2) * height * 0.4
             );
             
@@ -1076,7 +1084,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       layout.common?.forEach(item => {
         const equipPos = new THREE.Vector3(
           item.position[0] + horizontalOffset,
-          y + 0,
+          floor.level * 3 + verticalOffset,
           item.position[1]
         );
         
@@ -1597,7 +1605,10 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
         object.traverse(child => {
           if (child instanceof THREE.Mesh) {
             if (child.material.userData && child.material.userData.originalEmissiveIntensity !== undefined) {
-              child.material.emissiveIntensity = child.material.userData.originalEmissiveIntensity;
+              const material = child.material as THREE.MeshStandardMaterial;
+              if (material.emissiveIntensity !== undefined) {
+                material.emissiveIntensity = child.material.userData.originalEmissiveIntensity;
+              }
             }
           }
         });
@@ -1620,18 +1631,21 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
               // Apply hover effect
               const interactiveObject = interactiveObjects[key];
               interactiveObject.traverse(child => {
-                if (child instanceof THREE.Mesh && child.material.emissive) {
-                  // Store original emissive intensity for restoration when unhovered
-                  if (!child.material.userData) {
-                    child.material.userData = {};
+                if (child instanceof THREE.Mesh) {
+                  const material = child.material as THREE.MeshStandardMaterial;
+                  if (material.emissive !== undefined) {
+                    // Store original emissive intensity for restoration when unhovered
+                    if (!material.userData) {
+                      material.userData = {};
+                    }
+                    
+                    if (material.userData.originalEmissiveIntensity === undefined) {
+                      material.userData.originalEmissiveIntensity = material.emissiveIntensity || 0;
+                    }
+                    
+                    // Increase emissive intensity for hover effect
+                    material.emissiveIntensity = (material.userData.originalEmissiveIntensity || 0) + 0.5;
                   }
-                  
-                  if (child.material.userData.originalEmissiveIntensity === undefined) {
-                    child.material.userData.originalEmissiveIntensity = child.material.emissiveIntensity || 0;
-                  }
-                  
-                  // Increase emissive intensity for hover effect
-                  child.material.emissiveIntensity = (child.material.userData.originalEmissiveIntensity || 0) + 0.5;
                 }
               });
               
