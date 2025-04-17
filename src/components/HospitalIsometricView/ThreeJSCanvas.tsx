@@ -797,7 +797,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
             if (patient && patient.bedId) {
               const bed = visibleBeds.find(b => b.id === patient.bedId);
               if (bed) {
-                const floorObj = floors.find(f => f.type === bed.floor);
+                const floorObj = visibleFloors.find(f => f.type === bed.floor);
                 if (floorObj) {
                   const floorY = floorObj.level * 4;
                   object.position.y = floorY + 0.65;
