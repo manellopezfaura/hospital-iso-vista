@@ -671,12 +671,398 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       return group;
     };
     
-    // Rest of the ThreeJSCanvas component implementation...
-    // This is where you would add the rest of your code for rendering rooms, beds, patients, etc.
+    // Create floors and rooms
+    const floorObjects: { [key: string]: THREE.Group } = {};
+    
+    floors.forEach((floor, floorIndex) => {
+      const floorGroup = new THREE.Group();
+      floorGroup.position.y = floorIndex * 5; // Stack floors vertically
+      
+      // Create floor base
+      const floorBaseGeometry = new THREE.BoxGeometry(30, 0.5, 25);
+      const floorBase = new THREE.Mesh(floorBaseGeometry, floorMaterial);
+      floorBase.position.y = -0.25;
+      floorBase.receiveShadow = true;
+      floorGroup.add(floorBase);
+      
+      // Add floor name text
+      const layout = roomLayouts.find(l => l.type === floor.type) || roomLayouts[0];
+      
+      // Create rooms based on layout
+      layout.rooms.forEach((room, roomIndex) => {
+        const roomGroup = new THREE.Group();
+        
+        // Create room floor
+        const roomFloorGeometry = new THREE.BoxGeometry(room.width, 0.1, room.height);
+        const roomFloor = new THREE.Mesh(roomFloorGeometry, floorMaterial);
+        roomFloor.position.set(room.position[0] + room.width/2, 0, room.position[1] + room.height/2);
+        roomFloor.receiveShadow = true;
+        roomGroup.add(roomFloor);
+        
+        // Create room walls
+        const wallHeight = 3;
+        const wallThickness = 0.2;
+        
+        // Back wall
+        const backWallGeometry = new THREE.BoxGeometry(room.width, wallHeight, wallThickness);
+        const backWall = new THREE.Mesh(backWallGeometry, wallMaterial);
+        backWall.position.set(
+          room.position[0] + room.width/2, 
+          wallHeight/2, 
+          room.position[1]
+        );
+        backWall.castShadow = true;
+        backWall.receiveShadow = true;
+        roomGroup.add(backWall);
+        
+        // Left wall
+        const leftWallGeometry = new THREE.BoxGeometry(wallThickness, wallHeight, room.height);
+        const leftWall = new THREE.Mesh(leftWallGeometry, wallMaterial);
+        leftWall.position.set(
+          room.position[0], 
+          wallHeight/2, 
+          room.position[1] + room.height/2
+        );
+        leftWall.castShadow = true;
+        leftWall.receiveShadow = true;
+        roomGroup.add(leftWall);
+        
+        // Right wall
+        const rightWallGeometry = new THREE.BoxGeometry(wallThickness, wallHeight, room.height);
+        const rightWall = new THREE.Mesh(rightWallGeometry, wallMaterial);
+        rightWall.position.set(
+          room.position[0] + room.width, 
+          wallHeight/2, 
+          room.position[1] + room.height/2
+        );
+        rightWall.castShadow = true;
+        rightWall.receiveShadow = true;
+        roomGroup.add(rightWall);
+        
+        // Create beds in the room
+        if (room.bedsPerRoom > 0) {
+          const bedsInFloor = beds.filter(bed => 
+            bed.floor === floor.id && 
+            bed.room.includes(`${floor.name} Room ${roomIndex + 1}`)
+          );
+          
+          // Place beds based on room size and bed count
+          bedsInFloor.forEach((bed, bedIndex) => {
+            // Create bed frame
+            const bedGroup = new THREE.Group();
+            const frameGeometry = new THREE.BoxGeometry(0.9, 0.3, 2.1);
+            const frame = new THREE.Mesh(frameGeometry, bedFrameMaterial);
+            frame.position.y = 0.15;
+            frame.castShadow = true;
+            frame.receiveShadow = true;
+            bedGroup.add(frame);
+            
+            // Create mattress
+            const mattressGeometry = new THREE.BoxGeometry(0.8, 0.1, 2);
+            const mattress = new THREE.Mesh(mattressGeometry, bedSheetMaterial);
+            mattress.position.y = 0.35;
+            mattress.castShadow = true;
+            mattress.receiveShadow = true;
+            bedGroup.add(mattress);
+            
+            // Position bed within room
+            const offsetX = (room.width - room.bedsPerRoom * 1.2) / (room.bedsPerRoom + 1);
+            const bedX = room.position[0] + offsetX + bedIndex * (1.2 + offsetX);
+            const bedZ = room.position[1] + room.height * 0.7;
+            
+            bedGroup.position.set(bedX, 0, bedZ);
+            
+            // Add bed to interactive objects
+            bedGroup.userData.id = bed.id;
+            bedGroup.userData.type = 'bed';
+            interactiveObjects[`bed-${bed.id}`] = bedGroup;
+            
+            // Add the bed to the room
+            roomGroup.add(bedGroup);
+            
+            // Create nightstand next to bed
+            const nightstandGeometry = new THREE.BoxGeometry(0.6, 0.7, 0.6);
+            const nightstand = new THREE.Mesh(nightstandGeometry, nightstandMaterial);
+            nightstand.position.set(bedX + 0.7, 0.35, bedZ - 0.5);
+            nightstand.castShadow = true;
+            nightstand.receiveShadow = true;
+            roomGroup.add(nightstand);
+            
+            // Add patient to bed if occupied
+            if (bed.status === 'occupied' && bed.patientId) {
+              const patient = patients.find(p => p.id === bed.patientId);
+              if (patient) {
+                const patientGroup = new THREE.Group();
+                
+                // Create patient body
+                const bodyGeometry = new THREE.CapsuleGeometry(0.25, 1.3, 4, 8);
+                
+                // Select material based on patient status
+                let patientMaterial;
+                
+                if (selectedPatientId === patient.id) {
+                  patientMaterial = highlightedPatientMaterials[patient.status];
+                } else if (selectedPatientId && selectedPatientId !== patient.id) {
+                  patientMaterial = dimmedPatientMaterials[patient.status];
+                } else {
+                  patientMaterial = patientStatusMaterials[patient.status];
+                }
+                
+                const body = new THREE.Mesh(bodyGeometry, patientMaterial);
+                body.position.y = 0.9;
+                body.rotation.x = Math.PI / 2;
+                body.castShadow = true;
+                patientGroup.add(body);
+                
+                // Create patient head
+                const headGeometry = new THREE.SphereGeometry(0.25, 16, 16);
+                const head = new THREE.Mesh(headGeometry, patientMaterial);
+                head.position.set(0, 0.9, -0.8);
+                head.castShadow = true;
+                patientGroup.add(head);
+                
+                // Track patient meshes for highlighting
+                patientMeshes[patient.id] = [body, head];
+                patientGroups[patient.id] = patientGroup;
+                
+                // Position patient on bed
+                patientGroup.position.set(bedX, 0.35, bedZ);
+                
+                // Add patient to interactive objects
+                patientGroup.userData.id = patient.id;
+                patientGroup.userData.type = 'patient';
+                interactiveObjects[`patient-${patient.id}`] = patientGroup;
+                
+                // Add the patient to the room
+                roomGroup.add(patientGroup);
+              }
+            }
+            
+            // Add equipment based on room type
+            if (room.equipment && room.equipment.length > 0) {
+              room.equipment.forEach((equipType, eqIndex) => {
+                const eqPosition = new THREE.Vector3(
+                  bedX + (eqIndex % 2 ? 0.5 : -0.5), 
+                  0, 
+                  bedZ + (eqIndex % 2 ? 0.8 : -0.8)
+                );
+                const equipment = createEquipment(equipType, eqPosition);
+                roomGroup.add(equipment);
+              });
+            }
+          });
+        }
+        
+        floorGroup.add(roomGroup);
+      });
+      
+      // Add common areas from layout
+      if (layout.common) {
+        layout.common.forEach(area => {
+          const commonGroup = new THREE.Group();
+          // Create simplified representations of common areas
+          
+          switch(area.type) {
+            case 'nurses-station': {
+              // Counter
+              const counterGeometry = new THREE.BoxGeometry(3, 1, 1.5);
+              const counter = new THREE.Mesh(counterGeometry, new THREE.MeshStandardMaterial({
+                color: isDarkMode ? 0xCABDC9 : 0xE2E8F0,
+                roughness: 0.5,
+                metalness: 0.2
+              }));
+              counter.position.set(0, 0.5, 0);
+              counter.castShadow = true;
+              counter.receiveShadow = true;
+              commonGroup.add(counter);
+              
+              // Computer
+              const computerGeometry = new THREE.BoxGeometry(0.6, 0.4, 0.05);
+              const computer = new THREE.Mesh(computerGeometry, equipmentMaterials.screen);
+              computer.position.set(0, 1.2, -0.5);
+              computer.rotation.x = -Math.PI / 6;
+              commonGroup.add(computer);
+              break;
+            }
+            
+            case 'reception': {
+              // Desk
+              const deskGeometry = new THREE.BoxGeometry(4, 1, 2);
+              const desk = new THREE.Mesh(deskGeometry, new THREE.MeshStandardMaterial({
+                color: isDarkMode ? 0xA59AAB : 0xE2E8F0,
+                roughness: 0.5,
+                metalness: 0.2
+              }));
+              desk.position.set(0, 0.5, 0);
+              desk.castShadow = true;
+              desk.receiveShadow = true;
+              commonGroup.add(desk);
+              
+              // Sign
+              const signGeometry = new THREE.BoxGeometry(2, 0.8, 0.1);
+              const sign = new THREE.Mesh(signGeometry, new THREE.MeshStandardMaterial({
+                color: isDarkMode ? 0x8B5CF6 : 0x3182CE,
+                emissive: isDarkMode ? 0x8B5CF6 : 0x3182CE,
+                emissiveIntensity: 0.2,
+                roughness: 0.3,
+                metalness: 0.7
+              }));
+              sign.position.set(0, 1.5, 0);
+              commonGroup.add(sign);
+              break;
+            }
+            
+            default: {
+              // Generic area - just a platform
+              const platformGeometry = new THREE.BoxGeometry(3, 0.2, 3);
+              const platform = new THREE.Mesh(platformGeometry, floorMaterial);
+              platform.receiveShadow = true;
+              commonGroup.add(platform);
+            }
+          }
+          
+          commonGroup.position.set(area.position[0], 0, area.position[1]);
+          commonGroup.rotation.y = area.rotation || 0;
+          floorGroup.add(commonGroup);
+        });
+      }
+      
+      // Only show the selected floor or show all floors if none selected
+      if (selectedFloor === floor.id) {
+        floorGroup.visible = true;
+        scene.add(floorGroup);
+      } else if (!selectedFloor) {
+        // If no floor selected, show all floors but offset them
+        floorGroup.visible = true;
+        floorGroup.position.y = floorIndex * 5;
+        scene.add(floorGroup);
+      } else {
+        floorGroup.visible = false;
+      }
+      
+      floorObjects[floor.id] = floorGroup;
+    });
+    
+    // Set up click handler for interactive objects
+    const handleClick = (event: MouseEvent) => {
+      if (!mountRef.current) return;
+      
+      // Calculate mouse position in normalized device coordinates
+      const rect = mountRef.current.getBoundingClientRect();
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      
+      // Update the picking ray with the camera and mouse position
+      raycaster.setFromCamera(mouse, camera);
+      
+      // Find intersections with interactive objects
+      const interactiveArray = Object.values(interactiveObjects);
+      const intersects = raycaster.intersectObjects(interactiveArray, true);
+      
+      if (intersects.length > 0) {
+        // Find the first ancestor with userData
+        let currentObject: THREE.Object3D | null = intersects[0].object;
+        while (currentObject && (!currentObject.userData || !currentObject.userData.type)) {
+          currentObject = currentObject.parent;
+        }
+        
+        if (currentObject && currentObject.userData.id) {
+          if (currentObject.userData.type === 'bed' && onBedSelect) {
+            onBedSelect(currentObject.userData.id);
+          } else if (currentObject.userData.type === 'patient' && onPatientSelect) {
+            onPatientSelect(currentObject.userData.id);
+          }
+        }
+      }
+    };
+    
+    // Set up hover handler for interactive objects
+    const handleMouseMove = (event: MouseEvent) => {
+      if (!mountRef.current) return;
+      
+      // Calculate mouse position in normalized device coordinates
+      const rect = mountRef.current.getBoundingClientRect();
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      
+      // Update the picking ray with the camera and mouse position
+      raycaster.setFromCamera(mouse, camera);
+      
+      // Find intersections with interactive objects
+      const interactiveArray = Object.values(interactiveObjects);
+      const intersects = raycaster.intersectObjects(interactiveArray, true);
+      
+      // Reset hovered state
+      if (hoveredObject) {
+        setHoveredObject(null);
+      }
+      
+      if (intersects.length > 0) {
+        // Find the first ancestor with userData
+        let currentObject: THREE.Object3D | null = intersects[0].object;
+        while (currentObject && (!currentObject.userData || !currentObject.userData.type)) {
+          currentObject = currentObject.parent;
+        }
+        
+        if (currentObject && currentObject.userData.id) {
+          setHoveredObject(`${currentObject.userData.type}-${currentObject.userData.id}`);
+          document.body.style.cursor = 'pointer';
+        } else {
+          document.body.style.cursor = 'default';
+        }
+      } else {
+        document.body.style.cursor = 'default';
+      }
+    };
+    
+    // Add event listeners
+    mountRef.current.addEventListener('click', handleClick);
+    mountRef.current.addEventListener('mousemove', handleMouseMove);
+    
+    // Animation loop
+    const animate = () => {
+      requestAnimationFrame(animate);
+      
+      // Update controls
+      controls.update();
+      
+      // Animate any objects with animate methods
+      scene.traverseVisible(object => {
+        if (object.userData && (object as any).animate && typeof (object as any).animate === 'function') {
+          (object as any).animate();
+        }
+      });
+      
+      // Render the scene
+      renderer.render(scene, camera);
+    };
+    
+    // Start the animation loop
+    animate();
+    
+    // Handle window resize
+    const handleResize = () => {
+      if (!mountRef.current) return;
+      
+      const width = mountRef.current.clientWidth;
+      const height = mountRef.current.clientHeight;
+      
+      camera.left = -10 * (width / height);
+      camera.right = 10 * (width / height);
+      camera.updateProjectionMatrix();
+      
+      renderer.setSize(width, height);
+    };
+    
+    window.addEventListener('resize', handleResize);
     
     // Clean up function
     return () => {
+      window.removeEventListener('resize', handleResize);
+      
       if (mountRef.current) {
+        mountRef.current.removeEventListener('click', handleClick);
+        mountRef.current.removeEventListener('mousemove', handleMouseMove);
         mountRef.current.removeChild(renderer.domElement);
       }
       
@@ -698,7 +1084,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
         }
       });
     };
-  }, [hospital, selectedFloor, selectedPatientId, onBedSelect, onPatientSelect, isDarkMode]);
+  }, [hospital, selectedFloor, selectedPatientId, onBedSelect, onPatientSelect, isDarkMode, hoveredObject]);
   
   return <div ref={mountRef} className="w-full h-full" />;
 };
