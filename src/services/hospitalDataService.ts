@@ -84,13 +84,16 @@ export const generateHospitalData = (): Hospital => {
       const bedStatus = generateBedStatus();
       floorBeds.push(bedId);
       
+      // Room numbering: Room 1, Room 2, etc. - 5 beds per room
+      const roomNumber = Math.floor(j / 5) + 1;
+      
       // Create a bed
       const bed: Bed = {
         id: bedId,
         position: generatePosition(floorIndex, j),
         status: bedStatus,
         floor: floorType,
-        room: `Room ${floorIndex}${String.fromCharCode(65 + Math.floor(j / 4))}`,
+        room: `Room ${roomNumber}`,
       };
       
       // Add a patient if the bed is occupied

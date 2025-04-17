@@ -38,6 +38,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     console.log("Initializing ThreeJSCanvas with hospital data:", hospital);
     console.log("Selected patient ID:", selectedPatientId);
     console.log("Dark mode enabled:", isDarkMode);
+    console.log("Number of beds:", beds.length);
     
     // Scene setup with background based on theme
     const scene = new THREE.Scene();
@@ -674,6 +675,8 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     // Create floors and rooms
     const floorObjects: { [key: string]: THREE.Group } = {};
     
+    let bedsAdded = 0;
+    
     floors.forEach((floor, floorIndex) => {
       const floorGroup = new THREE.Group();
       floorGroup.position.y = floorIndex * 5; // Stack floors vertically
@@ -685,7 +688,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       floorBase.receiveShadow = true;
       floorGroup.add(floorBase);
       
-      // Add floor name text
+      // Find layout for this floor type
       const layout = roomLayouts.find(l => l.type === floor.type) || roomLayouts[0];
       
       // Create rooms based on layout
@@ -739,15 +742,23 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
         rightWall.receiveShadow = true;
         roomGroup.add(rightWall);
         
-        // Create beds in the room
+        // Create beds in the room based on the beds array from hospital data
         if (room.bedsPerRoom > 0) {
-          const bedsInFloor = beds.filter(bed => 
-            bed.floor === floor.id && 
-            bed.room.includes(`${floor.name} Room ${roomIndex + 1}`)
+          // Filter beds for this floor and room
+          const bedsInRoom = beds.filter(bed => 
+            bed.floor === floor.type && 
+            bed.room.includes(`Room ${roomIndex + 1}`)
           );
           
-          // Place beds based on room size and bed count
-          bedsInFloor.forEach((bed, bedIndex) => {
+          console.log(`Floor ${floor.name}, Room ${roomIndex + 1}: Found ${bedsInRoom.length} beds`);
+          
+          bedsInRoom.forEach((bed, bedIndex) => {
+            // Calculate bed position within the room
+            const offsetX = (room.width - room.bedsPerRoom * 1.2) / (room.bedsPerRoom + 1);
+            const bedX = room.position[0] + offsetX + (bedIndex % room.bedsPerRoom) * (1.2 + offsetX);
+            const bedY = 0;
+            const bedZ = room.position[1] + room.height * 0.7 - Math.floor(bedIndex / room.bedsPerRoom) * 2.5;
+            
             // Create bed frame
             const bedGroup = new THREE.Group();
             const frameGeometry = new THREE.BoxGeometry(0.9, 0.3, 2.1);
@@ -766,11 +777,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
             bedGroup.add(mattress);
             
             // Position bed within room
-            const offsetX = (room.width - room.bedsPerRoom * 1.2) / (room.bedsPerRoom + 1);
-            const bedX = room.position[0] + offsetX + bedIndex * (1.2 + offsetX);
-            const bedZ = room.position[1] + room.height * 0.7;
-            
-            bedGroup.position.set(bedX, 0, bedZ);
+            bedGroup.position.set(bedX, bedY, bedZ);
             
             // Add bed to interactive objects
             bedGroup.userData.id = bed.id;
@@ -779,6 +786,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
             
             // Add the bed to the room
             roomGroup.add(bedGroup);
+            bedsAdded++;
             
             // Create nightstand next to bed
             const nightstandGeometry = new THREE.BoxGeometry(0.6, 0.7, 0.6);
@@ -801,11 +809,21 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
                 let patientMaterial;
                 
                 if (selectedPatientId === patient.id) {
-                  patientMaterial = highlightedPatientMaterials[patient.status];
-                } else if (selectedPatientId && selectedPatientId !== patient.id) {
-                  patientMaterial = dimmedPatientMaterials[patient.status];
+                  patientMaterial = new THREE.MeshStandardMaterial({ 
+                    color: patient.status === 'critical' ? 0xea384c : patient.status === 'stable' ? 0x4ade80 : 0x8E9196,
+                    emissive: patient.status === 'critical' ? 0xea384c : patient.status === 'stable' ? 0x4ade80 : 0x8E9196,
+                    emissiveIntensity: isDarkMode ? 1.2 : 0.8,
+                    roughness: 0.3,
+                    metalness: 0.2
+                  });
                 } else {
-                  patientMaterial = patientStatusMaterials[patient.status];
+                  patientMaterial = new THREE.MeshStandardMaterial({ 
+                    color: patient.status === 'critical' ? 0xea384c : patient.status === 'stable' ? 0x4ade80 : 0x8E9196,
+                    emissive: patient.status === 'critical' ? 0xea384c : patient.status === 'stable' ? 0x4ade80 : 0x8E9196,
+                    emissiveIntensity: isDarkMode ? 0.7 : 0.5,
+                    roughness: 0.3,
+                    metalness: 0.2
+                  });
                 }
                 
                 const body = new THREE.Mesh(bodyGeometry, patientMaterial);
@@ -840,17 +858,29 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
             
             // Add equipment based on room type
             if (room.equipment && room.equipment.length > 0) {
-              room.equipment.forEach((equipType, eqIndex) => {
-                const eqPosition = new THREE.Vector3(
-                  bedX + (eqIndex % 2 ? 0.5 : -0.5), 
-                  0, 
-                  bedZ + (eqIndex % 2 ? 0.8 : -0.8)
-                );
-                const equipment = createEquipment(equipType, eqPosition);
-                roomGroup.add(equipment);
-              });
+              const equipType = room.equipment[bedIndex % room.equipment.length];
+              const eqPosition = new THREE.Vector3(
+                bedX + (bedIndex % 2 ? 0.5 : -0.5), 
+                0, 
+                bedZ + (bedIndex % 2 ? 0.8 : -0.8)
+              );
+              const equipment = createEquipment(equipType, eqPosition);
+              roomGroup.add(equipment);
             }
           });
+          
+          // If no beds were found for this room, add dummy beds for debugging
+          if (bedsInRoom.length === 0 && room.bedsPerRoom > 0) {
+            for (let i = 0; i < room.bedsPerRoom; i++) {
+              const offsetX = (room.width - room.bedsPerRoom * 1.2) / (room.bedsPerRoom + 1);
+              const bedX = room.position[0] + offsetX + i * (1.2 + offsetX);
+              const bedZ = room.position[1] + room.height * 0.7;
+              
+              const dummyBedId = `dummy-bed-${floor.id}-${roomIndex}-${i}`;
+              const dummyBed = createDebugBed(new THREE.Vector3(bedX, 0, bedZ), dummyBedId);
+              roomGroup.add(dummyBed);
+            }
+          }
         }
         
         floorGroup.add(roomGroup);
@@ -858,73 +888,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       
       // Add common areas from layout
       if (layout.common) {
-        layout.common.forEach(area => {
-          const commonGroup = new THREE.Group();
-          // Create simplified representations of common areas
-          
-          switch(area.type) {
-            case 'nurses-station': {
-              // Counter
-              const counterGeometry = new THREE.BoxGeometry(3, 1, 1.5);
-              const counter = new THREE.Mesh(counterGeometry, new THREE.MeshStandardMaterial({
-                color: isDarkMode ? 0xCABDC9 : 0xE2E8F0,
-                roughness: 0.5,
-                metalness: 0.2
-              }));
-              counter.position.set(0, 0.5, 0);
-              counter.castShadow = true;
-              counter.receiveShadow = true;
-              commonGroup.add(counter);
-              
-              // Computer
-              const computerGeometry = new THREE.BoxGeometry(0.6, 0.4, 0.05);
-              const computer = new THREE.Mesh(computerGeometry, equipmentMaterials.screen);
-              computer.position.set(0, 1.2, -0.5);
-              computer.rotation.x = -Math.PI / 6;
-              commonGroup.add(computer);
-              break;
-            }
-            
-            case 'reception': {
-              // Desk
-              const deskGeometry = new THREE.BoxGeometry(4, 1, 2);
-              const desk = new THREE.Mesh(deskGeometry, new THREE.MeshStandardMaterial({
-                color: isDarkMode ? 0xA59AAB : 0xE2E8F0,
-                roughness: 0.5,
-                metalness: 0.2
-              }));
-              desk.position.set(0, 0.5, 0);
-              desk.castShadow = true;
-              desk.receiveShadow = true;
-              commonGroup.add(desk);
-              
-              // Sign
-              const signGeometry = new THREE.BoxGeometry(2, 0.8, 0.1);
-              const sign = new THREE.Mesh(signGeometry, new THREE.MeshStandardMaterial({
-                color: isDarkMode ? 0x8B5CF6 : 0x3182CE,
-                emissive: isDarkMode ? 0x8B5CF6 : 0x3182CE,
-                emissiveIntensity: 0.2,
-                roughness: 0.3,
-                metalness: 0.7
-              }));
-              sign.position.set(0, 1.5, 0);
-              commonGroup.add(sign);
-              break;
-            }
-            
-            default: {
-              // Generic area - just a platform
-              const platformGeometry = new THREE.BoxGeometry(3, 0.2, 3);
-              const platform = new THREE.Mesh(platformGeometry, floorMaterial);
-              platform.receiveShadow = true;
-              commonGroup.add(platform);
-            }
-          }
-          
-          commonGroup.position.set(area.position[0], 0, area.position[1]);
-          commonGroup.rotation.y = area.rotation || 0;
-          floorGroup.add(commonGroup);
-        });
+        // ... keep existing code (common areas creation)
       }
       
       // Only show the selected floor or show all floors if none selected
@@ -942,6 +906,16 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       
       floorObjects[floor.id] = floorGroup;
     });
+    
+    console.log(`Total beds added to scene: ${bedsAdded}`);
+    
+    // Debug - add a sample bed if none were created
+    if (bedsAdded === 0) {
+      const debugBed = createDebugBed(new THREE.Vector3(0, 0, 0), "debug-bed-1");
+      scene.add(debugBed);
+      
+      console.log("No beds were added from hospital data - added a debug bed at origin");
+    }
     
     // Set up click handler for interactive objects
     const handleClick = (event: MouseEvent) => {
