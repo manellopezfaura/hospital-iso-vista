@@ -23,14 +23,12 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
   const mountRef = useRef<HTMLDivElement>(null);
   const [hoveredObject, setHoveredObject] = useState<string | null>(null);
   
-  // Helper function to create a realistic hospital bed
   const createHospitalBed = (position: THREE.Vector3, id: string): THREE.Group => {
     const bedGroup = new THREE.Group();
     
-    // Create bed frame (more detailed)
     const frameGeometry = new THREE.BoxGeometry(0.9, 0.3, 2.1);
     const frameMaterial = new THREE.MeshStandardMaterial({ 
-      color: isDarkMode ? 0x9F9EA1 : 0xCBD5E0, // Silver gray
+      color: isDarkMode ? 0x9F9EA1 : 0xCBD5E0,
       roughness: 0.3,
       metalness: 0.8
     });
@@ -40,10 +38,9 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     frame.receiveShadow = true;
     bedGroup.add(frame);
     
-    // Create mattress
     const mattressGeometry = new THREE.BoxGeometry(0.8, 0.15, 1.9);
     const mattressMaterial = new THREE.MeshStandardMaterial({ 
-      color: isDarkMode ? 0xD3E4FD : 0xEBF8FF, // Light blue for sheets
+      color: isDarkMode ? 0xD3E4FD : 0xEBF8FF,
       roughness: 0.7,
       metalness: 0.0
     });
@@ -53,10 +50,9 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     mattress.receiveShadow = true;
     bedGroup.add(mattress);
     
-    // Add pillow
     const pillowGeometry = new THREE.BoxGeometry(0.6, 0.1, 0.4);
     const pillowMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0xffffff, // White
+      color: 0xffffff,
       roughness: 0.8,
       metalness: 0.0
     });
@@ -65,27 +61,23 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     pillow.castShadow = true;
     bedGroup.add(pillow);
     
-    // Add bed rails (sides)
     const railGeometry = new THREE.BoxGeometry(0.05, 0.3, 1.8);
     const railMaterial = new THREE.MeshStandardMaterial({ 
-      color: isDarkMode ? 0x9F9EA1 : 0xCBD5E0, 
+      color: isDarkMode ? 0x9F9EA1 : 0xCBD5E0,
       roughness: 0.2,
       metalness: 0.9
     });
     
-    // Left rail
     const leftRail = new THREE.Mesh(railGeometry, railMaterial);
     leftRail.position.set(-0.425, 0.5, 0);
     leftRail.castShadow = true;
     bedGroup.add(leftRail);
     
-    // Right rail
     const rightRail = new THREE.Mesh(railGeometry, railMaterial);
     rightRail.position.set(0.425, 0.5, 0);
     rightRail.castShadow = true;
     bedGroup.add(rightRail);
     
-    // Add bed head/foot boards
     const headboardGeometry = new THREE.BoxGeometry(0.9, 0.6, 0.08);
     const headboardMaterial = new THREE.MeshStandardMaterial({ 
       color: isDarkMode ? 0x8A898C : 0xA0AEC0,
@@ -93,19 +85,16 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       metalness: 0.5
     });
     
-    // Headboard (at the top)
     const headboard = new THREE.Mesh(headboardGeometry, headboardMaterial);
     headboard.position.set(0, 0.5, -1.05);
     headboard.castShadow = true;
     bedGroup.add(headboard);
     
-    // Footboard (at the bottom)
     const footboard = new THREE.Mesh(headboardGeometry, headboardMaterial);
     footboard.position.set(0, 0.5, 1.05);
     footboard.castShadow = true;
     bedGroup.add(footboard);
     
-    // Add legs
     const legGeometry = new THREE.CylinderGeometry(0.04, 0.04, 0.3, 8);
     const legMaterial = new THREE.MeshStandardMaterial({ 
       color: isDarkMode ? 0x8A898C : 0xA0AEC0,
@@ -113,7 +102,6 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       metalness: 0.8
     });
     
-    // Position legs at each corner
     const legPositions = [
       [-0.4, 0, -0.9],
       [0.4, 0, -0.9],
@@ -128,25 +116,20 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       bedGroup.add(leg);
     });
     
-    // Position the bed at the given position
     bedGroup.position.copy(position);
     
-    // Set user data for interaction
     bedGroup.userData.id = id;
     bedGroup.userData.type = 'bed';
     
     return bedGroup;
   };
   
-  // Helper function to create a more realistic patient
   const createPatient = (position: THREE.Vector3, id: string, status: PatientStatus, isSelected: boolean): THREE.Group => {
     const patientGroup = new THREE.Group();
     
-    // Choose material based on patient status and selection state
     let bodyMaterial;
     
     if (isSelected) {
-      // Selected patient has brighter emissive intensity
       bodyMaterial = new THREE.MeshStandardMaterial({ 
         color: status === 'critical' ? 0xea384c : status === 'stable' ? 0x4ade80 : 0x8E9196,
         emissive: status === 'critical' ? 0xea384c : status === 'stable' ? 0x4ade80 : 0x8E9196,
@@ -155,7 +138,6 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
         metalness: 0.1
       });
     } else {
-      // Regular patient
       bodyMaterial = new THREE.MeshStandardMaterial({ 
         color: status === 'critical' ? 0xea384c : status === 'stable' ? 0x4ade80 : 0x8E9196,
         emissive: status === 'critical' ? 0xea384c : status === 'stable' ? 0x4ade80 : 0x8E9196,
@@ -165,7 +147,6 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       });
     }
     
-    // Create a more realistic body - torso
     const torsoGeometry = new THREE.CapsuleGeometry(0.25, 0.8, 4, 8);
     const torso = new THREE.Mesh(torsoGeometry, bodyMaterial);
     torso.position.y = 0.55;
@@ -173,16 +154,12 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     torso.castShadow = true;
     patientGroup.add(torso);
     
-    // Create head
     const headGeometry = new THREE.SphereGeometry(0.2, 16, 16);
     const head = new THREE.Mesh(headGeometry, bodyMaterial);
     head.position.set(0, 0.6, -0.65);
     head.castShadow = true;
     patientGroup.add(head);
     
-    // Create arms and legs with simplified shapes for performance
-    
-    // Left arm
     const armGeometry = new THREE.CapsuleGeometry(0.08, 0.5, 4, 8);
     const leftArm = new THREE.Mesh(armGeometry, bodyMaterial);
     leftArm.position.set(-0.35, 0.55, -0.15);
@@ -190,17 +167,15 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     leftArm.castShadow = true;
     patientGroup.add(leftArm);
     
-    // Right arm
     const rightArm = new THREE.Mesh(armGeometry, bodyMaterial);
     rightArm.position.set(0.35, 0.55, -0.15);
     rightArm.rotation.z = -Math.PI / 2;
     rightArm.castShadow = true;
     patientGroup.add(rightArm);
     
-    // Add a blanket covering legs
     const blanketGeometry = new THREE.BoxGeometry(0.7, 0.08, 0.9);
     const blanketMaterial = new THREE.MeshStandardMaterial({ 
-      color: isDarkMode ? 0xD3E4FD : 0xEBF8FF, // Light blue
+      color: isDarkMode ? 0xD3E4FD : 0xEBF8FF,
       roughness: 0.8,
       metalness: 0.0
     });
@@ -209,23 +184,20 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     blanket.castShadow = true;
     patientGroup.add(blanket);
     
-    // Critical patients get monitoring equipment
     if (status === 'critical') {
-      // Add a simple IV stand
       const ivPoleGeometry = new THREE.CylinderGeometry(0.02, 0.02, 1.2, 8);
       const ivPoleMaterial = new THREE.MeshStandardMaterial({ 
-        color: 0xCCCCCC, 
-        roughness: 0.2, 
-        metalness: 0.9 
+        color: 0xCCCCCC,
+        roughness: 0.2,
+        metalness: 0.9
       });
       const ivPole = new THREE.Mesh(ivPoleGeometry, ivPoleMaterial);
       ivPole.position.set(0.45, 0.9, -0.3);
       patientGroup.add(ivPole);
       
-      // Add IV bag
       const ivBagGeometry = new THREE.BoxGeometry(0.05, 0.15, 0.05);
       const ivBagMaterial = new THREE.MeshStandardMaterial({ 
-        color: 0xFFFFFF, 
+        color: 0xFFFFFF,
         transparent: true,
         opacity: 0.7,
         roughness: 0.1
@@ -235,17 +207,14 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       patientGroup.add(ivBag);
     }
     
-    // Position the patient
     patientGroup.position.copy(position);
     
-    // Set user data for interaction
     patientGroup.userData.id = id;
     patientGroup.userData.type = 'patient';
     
     return patientGroup;
   };
   
-  // Performance optimization: memoize hospital data
   const { floors, beds, patients } = useMemo(() => {
     return {
       floors: hospital.floors,
@@ -262,14 +231,11 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     console.log("Dark mode enabled:", isDarkMode);
     console.log("Number of beds:", beds.length);
     
-    // Scene setup with background based on theme
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(isDarkMode ? 0x1A1F2C : 0xF6F6F7);
     
-    // Add fog for depth perception - adjust based on theme
     scene.fog = new THREE.FogExp2(isDarkMode ? 0x1A1F2C : 0xF6F6F7, 0.015);
     
-    // Camera setup for isometric view with better positioning
     const aspect = mountRef.current.clientWidth / mountRef.current.clientHeight;
     const camera = new THREE.OrthographicCamera(
       -10 * aspect, 10 * aspect, 10, -10, 0.1, 1000
@@ -277,7 +243,6 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     camera.position.set(20, 20, 20);
     camera.lookAt(0, 0, 0);
     
-    // Enhanced renderer with better settings
     const renderer = new THREE.WebGLRenderer({ 
       antialias: true,
       powerPreference: "high-performance",
@@ -291,7 +256,6 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     mountRef.current.appendChild(renderer.domElement);
     
-    // Improved orbit controls for smoother rotation
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
@@ -305,14 +269,12 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     controls.enablePan = true;
     controls.panSpeed = 0.8;
     
-    // Enhanced lighting system - adjusted based on theme
     const ambientLight = new THREE.AmbientLight(
       isDarkMode ? 0x6E59A5 : 0xF0EAD6, 
       isDarkMode ? 0.3 : 0.5
     );
     scene.add(ambientLight);
     
-    // Main directional light with shadows
     const directionalLight = new THREE.DirectionalLight(
       isDarkMode ? 0xffffff : 0xF5F5F5, 
       isDarkMode ? 0.8 : 0.9
@@ -326,7 +288,6 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     directionalLight.shadow.bias = -0.001;
     scene.add(directionalLight);
     
-    // Fill light for better illumination
     const fillLight = new THREE.DirectionalLight(
       isDarkMode ? 0x8B5CF6 : 0x90CDF4, 
       isDarkMode ? 0.3 : 0.4
@@ -334,7 +295,6 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     fillLight.position.set(-15, 10, 15);
     scene.add(fillLight);
     
-    // Accent point light
     const pointLight = new THREE.PointLight(
       isDarkMode ? 0x0EA5E9 : 0x3182CE, 
       isDarkMode ? 1.0 : 0.8, 
@@ -345,19 +305,14 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     pointLight.shadow.bias = -0.001;
     scene.add(pointLight);
     
-    // Raycaster for object selection
     const raycaster = new THREE.Raycaster();
     raycaster.params.Line.threshold = 0.1;
     raycaster.params.Points.threshold = 0.1;
     const mouse = new THREE.Vector2();
     
-    // Map of all interactive objects
     const interactiveObjects: { [key: string]: THREE.Object3D } = {};
-    
-    // Store references to patient meshes for highlighting
     const patientGroups: { [key: string]: THREE.Group } = {};
     
-    // Enhanced materials with PBR properties
     const floorMaterial = new THREE.MeshStandardMaterial({ 
       color: isDarkMode ? 0x403E43 : 0xE2E8F0,
       roughness: 0.7,
@@ -379,10 +334,9 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       envMapIntensity: 0.7
     });
     
-    // Create equipment materials
     const equipmentMaterials = {
       default: new THREE.MeshStandardMaterial({ 
-        color: isDarkMode ? 0xb0b0b0 : 0xA0AEC0, // Gray
+        color: isDarkMode ? 0xb0b0b0 : 0xA0AEC0,
         roughness: 0.2,
         metalness: 0.8
       }),
@@ -418,7 +372,6 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       })
     };
     
-    // Create medical equipment factory functions
     const createEquipment = (type: string, position: THREE.Vector3, status: 'working' | 'maintenance' | 'offline' = 'working') => {
       const group = new THREE.Group();
       let statusLight: THREE.Mesh;
@@ -426,31 +379,26 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       
       switch(type) {
         case 'monitor': {
-          // Base stand
           const standGeometry = new THREE.CylinderGeometry(0.2, 0.3, 0.8, 16);
           const stand = new THREE.Mesh(standGeometry, equipmentMaterials.default);
           stand.position.y = 0.4;
           group.add(stand);
           
-          // Monitor arm
           const armGeometry = new THREE.BoxGeometry(0.1, 0.8, 0.1);
           const arm = new THREE.Mesh(armGeometry, equipmentMaterials.default);
           arm.position.y = 1.2;
           group.add(arm);
           
-          // Screen
           const screenGeometry = new THREE.BoxGeometry(0.8, 0.6, 0.08);
           const screen = new THREE.Mesh(screenGeometry, equipmentMaterials.screen);
           screen.position.y = 1.5;
           screen.position.z = 0.1;
           group.add(screen);
           
-          // Status light
           const lightGeometry = new THREE.SphereGeometry(0.08, 16, 16);
           statusLight = new THREE.Mesh(lightGeometry, statusMaterial);
           statusLight.position.set(0.3, 1.3, 0);
           
-          // Animate the screen
           const animateScreen = () => {
             const time = Date.now() * 0.001;
             const screenMat = screen.material as THREE.MeshStandardMaterial;
@@ -462,20 +410,17 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
         }
         
         case 'ventilator': {
-          // Base unit
           const baseGeometry = new THREE.BoxGeometry(0.7, 1.2, 0.7);
           const base = new THREE.Mesh(baseGeometry, equipmentMaterials.default);
           base.position.y = 0.6;
           group.add(base);
           
-          // Screen
           const screenGeometry = new THREE.BoxGeometry(0.5, 0.3, 0.05);
           const screen = new THREE.Mesh(screenGeometry, equipmentMaterials.screen);
           screen.position.y = 0.9;
           screen.position.z = 0.38;
           group.add(screen);
           
-          // Tubes
           const tubeGeometry = new THREE.TubeGeometry(
             new THREE.CatmullRomCurve3([
               new THREE.Vector3(0, 0.8, 0.35),
@@ -491,12 +436,10 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
           }));
           group.add(tube);
           
-          // Status light
           const lightGeometry = new THREE.SphereGeometry(0.08, 16, 16);
           statusLight = new THREE.Mesh(lightGeometry, statusMaterial);
           statusLight.position.set(-0.25, 1.05, 0.38);
           
-          // Animate the screen
           const animateScreen = () => {
             const time = Date.now() * 0.001;
             const screenMat = screen.material as THREE.MeshStandardMaterial;
@@ -508,44 +451,37 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
         }
         
         case 'ct-scanner': {
-          // Scanner base
           const baseGeometry = new THREE.CylinderGeometry(1.4, 1.4, 0.4, 32);
           const base = new THREE.Mesh(baseGeometry, equipmentMaterials.default);
           base.position.y = 0.2;
           group.add(base);
           
-          // Scanner gantry (the ring)
           const ringGeometry = new THREE.TorusGeometry(1.2, 0.2, 16, 32);
           const ring = new THREE.Mesh(ringGeometry, equipmentMaterials.default);
           ring.position.y = 1.0;
           ring.rotation.x = Math.PI / 2;
           group.add(ring);
           
-          // Patient table
           const tableGeometry = new THREE.BoxGeometry(0.8, 0.1, 2.5);
           const table = new THREE.Mesh(tableGeometry, equipmentMaterials.default);
           table.position.y = 0.7;
           table.position.z = 0.5;
           group.add(table);
           
-          // Control panel
           const panelGeometry = new THREE.BoxGeometry(0.6, 0.8, 0.15);
           const panel = new THREE.Mesh(panelGeometry, equipmentMaterials.default);
           panel.position.set(-1.0, 1.0, 1.5);
           group.add(panel);
           
-          // Screen on panel
           const screenGeometry = new THREE.PlaneGeometry(0.4, 0.3);
           const screen = new THREE.Mesh(screenGeometry, equipmentMaterials.screen);
           screen.position.set(-1.0, 1.2, 1.58);
           group.add(screen);
           
-          // Status light
           const lightGeometry = new THREE.SphereGeometry(0.1, 16, 16);
           statusLight = new THREE.Mesh(lightGeometry, statusMaterial);
           statusLight.position.set(-1.0, 0.8, 1.58);
           
-          // Animate the ring
           const animateRing = () => {
             const time = Date.now() * 0.001;
             if (status === 'working') {
@@ -554,7 +490,6 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
           };
           (ring as any).animate = animateRing;
           
-          // Animate screen 
           const animateScreen = () => {
             const time = Date.now() * 0.001;
             const screenMat = screen.material as THREE.MeshStandardMaterial;
@@ -566,14 +501,12 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
         }
         
         case 'mri': {
-          // Main body
           const bodyGeometry = new THREE.CylinderGeometry(1.2, 1.2, 2, 32);
           const body = new THREE.Mesh(bodyGeometry, equipmentMaterials.default);
           body.position.y = 1;
           body.rotation.x = Math.PI / 2;
           group.add(body);
           
-          // Bore hole (the tunnel)
           const boreGeometry = new THREE.CylinderGeometry(0.6, 0.6, 2.2, 32);
           const bore = new THREE.Mesh(boreGeometry, new THREE.MeshBasicMaterial({ 
             color: 0x000000 
@@ -582,31 +515,26 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
           bore.rotation.x = Math.PI / 2;
           group.add(bore);
           
-          // Patient table
           const tableGeometry = new THREE.BoxGeometry(0.8, 0.1, 3);
           const table = new THREE.Mesh(tableGeometry, equipmentMaterials.default);
           table.position.y = 0.7;
           table.position.z = 0.5;
           group.add(table);
           
-          // Control terminal
           const terminalGeometry = new THREE.BoxGeometry(0.8, 1.2, 0.5);
           const terminal = new THREE.Mesh(terminalGeometry, equipmentMaterials.default);
           terminal.position.set(-1.5, 0.6, 1.5);
           group.add(terminal);
           
-          // Screen
           const screenGeometry = new THREE.PlaneGeometry(0.6, 0.5);
           const screen = new THREE.Mesh(screenGeometry, equipmentMaterials.screen);
           screen.position.set(-1.5, 1.0, 1.76);
           group.add(screen);
           
-          // Status light
           const lightGeometry = new THREE.SphereGeometry(0.12, 16, 16);
           statusLight = new THREE.Mesh(lightGeometry, statusMaterial);
           statusLight.position.set(0, 1.8, 0);
           
-          // Animate the screen
           const animateScreen = () => {
             const time = Date.now() * 0.001;
             const screenMat = screen.material as THREE.MeshStandardMaterial;
@@ -618,20 +546,17 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
         }
         
         case 'surgical-lights': {
-          // Main boom arm
           const boomGeometry = new THREE.CylinderGeometry(0.05, 0.05, 1.5, 8);
           const boom = new THREE.Mesh(boomGeometry, equipmentMaterials.default);
           boom.position.y = 2.25;
           boom.rotation.x = Math.PI / 2;
           group.add(boom);
           
-          // Light housing
           const housingGeometry = new THREE.CylinderGeometry(0.4, 0.6, 0.2, 16);
           const housing = new THREE.Mesh(housingGeometry, equipmentMaterials.default);
           housing.position.y = 1.5;
           group.add(housing);
           
-          // Light lens
           const lensGeometry = new THREE.CircleGeometry(0.5, 32);
           const lens = new THREE.Mesh(lensGeometry, new THREE.MeshBasicMaterial({ 
             color: status === 'working' ? 0xffffee : 0x555555,
@@ -642,7 +567,6 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
           lens.rotation.x = -Math.PI / 2;
           group.add(lens);
           
-          // Add a spotlight
           const spotlight = new THREE.SpotLight(
             status === 'working' ? 0xffffee : 0x000000, 
             status === 'working' ? 1 : 0, 
@@ -655,12 +579,10 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
           group.add(spotlight);
           group.add(spotlight.target);
           
-          // Status light
           const lightGeometry = new THREE.SphereGeometry(0.08, 16, 16);
           statusLight = new THREE.Mesh(lightGeometry, statusMaterial);
           statusLight.position.set(0.3, 1.5, 0);
           
-          // Animate the light
           const animateLight = () => {
             if (status === 'working') {
               const time = Date.now() * 0.001;
@@ -674,13 +596,11 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
         }
         
         case 'anesthesia-machine': {
-          // Main body
           const bodyGeometry = new THREE.BoxGeometry(0.8, 1.4, 0.6);
           const body = new THREE.Mesh(bodyGeometry, equipmentMaterials.default);
           body.position.y = 0.7;
           group.add(body);
           
-          // Gas canisters
           const cylinderGeometry = new THREE.CylinderGeometry(0.1, 0.1, 0.5, 16);
           const cylinder1 = new THREE.Mesh(cylinderGeometry, new THREE.MeshStandardMaterial({ 
             color: 0x6e9df1, roughness: 0.2, metalness: 0.9 
@@ -700,6 +620,57 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
           cylinder3.position.set(0.25, 1.2, 0.35);
           group.add(cylinder3);
           
-          // Monitor
           const monitorGeometry = new THREE.BoxGeometry(0.6, 0.4, 0.05);
           const monitor = new THREE.Mesh(monitorGeometry, equipmentMaterials.screen);
+          monitor.position.set(0.25, 1.3, 0.35);
+          group.add(monitor);
+          
+          const animateMonitor = () => {
+            const time = Date.now() * 0.001;
+            const monitorMat = monitor.material as THREE.MeshStandardMaterial;
+            monitorMat.emissiveIntensity = 0.3 + Math.sin(time * 2) * 0.1;
+          };
+          (monitor as any).animate = animateMonitor;
+          
+          const lightGeometry = new THREE.SphereGeometry(0.08, 16, 16);
+          statusLight = new THREE.Mesh(lightGeometry, statusMaterial);
+          statusLight.position.set(-0.25, 1.4, 0.35);
+          group.add(statusLight);
+          
+          break;
+        }
+      }
+      
+      group.position.copy(position);
+      group.userData.id = id;
+      group.userData.type = type;
+      
+      return group;
+    };
+    
+    // Add floors, beds, and patients to the scene
+    floors.forEach(floor => {
+      const floorMesh = new THREE.Mesh(floorGeometry, floorMaterial);
+      floorMesh.position.y = floor.position.y;
+      scene.add(floorMesh);
+    });
+    
+    beds.forEach(bed => {
+      const bedMesh = createHospitalBed(bed.position, bed.id);
+      scene.add(bedMesh);
+    });
+    
+    patients.forEach(patient => {
+      const patientMesh = createPatient(patient.position, patient.id, patient.status, patient.selected);
+      scene.add(patientMesh);
+    });
+    
+    renderer.render(scene, camera);
+  }, [mountRef, hospital, selectedFloor, selectedPatientId, isDarkMode]);
+  
+  return (
+    <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
+  );
+};
+
+export default ThreeJSCanvas;
