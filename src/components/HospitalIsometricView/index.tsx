@@ -118,6 +118,7 @@ const HospitalIsometricView: React.FC = () => {
         <ThreeJSCanvas 
           hospital={hospital}
           selectedFloor={selectedFloor}
+          selectedPatientId={selectedPatientId}
           onBedSelect={handleBedSelect}
           onPatientSelect={handlePatientSelect}
         />

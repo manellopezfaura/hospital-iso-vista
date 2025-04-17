@@ -6,6 +6,7 @@ import { Hospital, Bed, Patient, Position, BedStatus, PatientStatus } from '@/ty
 interface ThreeJSCanvasProps {
   hospital: Hospital;
   selectedFloor?: string | null;
+  selectedPatientId?: string | null;
   onBedSelect?: (bedId: string) => void;
   onPatientSelect?: (patientId: string) => void;
 }
@@ -13,6 +14,7 @@ interface ThreeJSCanvasProps {
 const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
   hospital,
   selectedFloor,
+  selectedPatientId,
   onBedSelect,
   onPatientSelect
 }) => {
@@ -32,6 +34,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     if (!mountRef.current) return;
     
     console.log("Initializing ThreeJSCanvas with hospital data:", hospital);
+    console.log("Selected patient ID:", selectedPatientId);
     
     // Scene setup with improved background
     const scene = new THREE.Scene();
@@ -47,6 +50,10 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     );
     camera.position.set(20, 20, 20);
     camera.lookAt(0, 0, 0);
+    
+    // Store references to patient meshes for highlighting
+    const patientMeshes: { [key: string]: THREE.Mesh[] } = {};
+    const patientGroups: { [key: string]: THREE.Group } = {};
     
     // Enhanced renderer with better settings
     const renderer = new THREE.WebGLRenderer({ 
@@ -181,6 +188,32 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
         metalness: 0.2
       })
     };
+    
+    // Create dimmed versions of patient materials for non-selected patients
+    const dimmedPatientMaterials = {
+      critical: patientStatusMaterials.critical.clone(),
+      stable: patientStatusMaterials.stable.clone(),
+      discharged: patientStatusMaterials.discharged.clone()
+    };
+    
+    // Apply dimming effect to non-selected patient materials
+    Object.values(dimmedPatientMaterials).forEach(material => {
+      material.opacity = 0.4;
+      material.transparent = true;
+      material.emissiveIntensity = 0.2;
+    });
+    
+    // Create highlighted versions of patient materials for selected patient
+    const highlightedPatientMaterials = {
+      critical: patientStatusMaterials.critical.clone(),
+      stable: patientStatusMaterials.stable.clone(),
+      discharged: patientStatusMaterials.discharged.clone()
+    };
+    
+    // Apply highlighting effect to selected patient materials
+    Object.values(highlightedPatientMaterials).forEach(material => {
+      material.emissiveIntensity = 1.2;
+    });
     
     // Create environment map for shiny reflections
     const cubeRenderTarget = new THREE.WebGLCubeRenderTarget(256);
@@ -610,20 +643,42 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
         if (patient) {
           console.log(`Adding patient: ${patient.id} with status: ${patient.status} to bed: ${bed.id}`);
           
-          // Determine material based on patient status
+          // Determine if this patient is selected to apply the right material
+          const isSelected = selectedPatientId === patient.id;
+          console.log(`Patient ${patient.id} selected: ${isSelected}`);
+          
+          // Choose the appropriate material based on selection state
           let patientMaterial: THREE.MeshStandardMaterial;
-          switch (patient.status) {
-            case 'critical':
-              patientMaterial = patientStatusMaterials.critical;
-              break;
-            case 'stable':
-              patientMaterial = patientStatusMaterials.stable;
-              break;
-            case 'discharged':
-              patientMaterial = patientStatusMaterials.discharged;
-              break;
-            default:
-              patientMaterial = patientStatusMaterials.stable;
+          if (isSelected) {
+            // Use highlighted material for selected patient
+            switch (patient.status) {
+              case 'critical':
+                patientMaterial = highlightedPatientMaterials.critical;
+                break;
+              case 'stable':
+                patientMaterial = highlightedPatientMaterials.stable;
+                break;
+              case 'discharged':
+                patientMaterial = highlightedPatientMaterials.discharged;
+                break;
+              default:
+                patientMaterial = highlightedPatientMaterials.stable;
+            }
+          } else {
+            // Use dimmed material for non-selected patients
+            switch (patient.status) {
+              case 'critical':
+                patientMaterial = dimmedPatientMaterials.critical;
+                break;
+              case 'stable':
+                patientMaterial = dimmedPatientMaterials.stable;
+                break;
+              case 'discharged':
+                patientMaterial = dimmedPatientMaterials.discharged;
+                break;
+              default:
+                patientMaterial = dimmedPatientMaterials.stable;
+            }
           }
           
           // Create patient visualization with improved model
@@ -635,6 +690,12 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
           patientMesh.scale.set(1, 0.45, 0.6);
           patientMesh.castShadow = true;
           bedGroup.add(patientMesh);
+          
+          // Keep track of patient meshes for selection highlighting
+          if (!patientMeshes[patient.id]) {
+            patientMeshes[patient.id] = [];
+          }
+          patientMeshes[patient.id].push(patientMesh);
           
           // Animate patient "breathing" if not discharged
           if (patient.status !== 'discharged') {
@@ -655,6 +716,9 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
           head.castShadow = true;
           bedGroup.add(head);
           
+          // Add to patient meshes collection
+          patientMeshes[patient.id].push(head);
+          
           // Create holographic patient indicator
           const patientGroup = new THREE.Group();
           patientGroup.name = `patient-indicator-${patient.id}`;
@@ -665,7 +729,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
             color: 0x33a1c9, 
             side: THREE.DoubleSide,
             transparent: true,
-            opacity: 0.7
+            opacity: isSelected ? 0.9 : 0.4
           });
           
           const circle = new THREE.Mesh(circleGeometry, circleMaterial);
@@ -673,13 +737,13 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
           circle.rotation.x = -Math.PI / 2;
           patientGroup.add(circle);
           
-          // Create modern patient icon
+          // Create modern patient icon with opacity based on selection
           const iconHeadGeometry = new THREE.SphereGeometry(0.15, 16, 16);
           const iconBodyGeometry = new THREE.BoxGeometry(0.2, 0.2, 0.24);
           const iconMaterial = new THREE.MeshBasicMaterial({ 
-            color: 0xffffff,
+            color: isSelected ? 0xFFFFFF : 0xCCCCCC,
             transparent: true,
-            opacity: 0.9
+            opacity: isSelected ? 0.9 : 0.5
           });
           
           const iconHead = new THREE.Mesh(iconHeadGeometry, iconMaterial);
@@ -691,6 +755,9 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
           iconBody.name = "patient-icon-body";
           iconBody.position.y = 0.01;
           patientGroup.add(iconBody);
+          
+          // Add to patient meshes collection
+          patientMeshes[patient.id].push(iconHead, iconBody, circle);
           
           // Make icon float and rotate
           const animateIcon = () => {
@@ -708,10 +775,57 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
             bed.position.z - 0.4
           );
           
+          // Store reference to the patient group
+          patientGroups[patient.id] = patientGroup;
+          
           scene.add(patientGroup);
           
           // Make patient interactive
           interactiveObjects[patient.id] = patientGroup;
+          
+          // Add selection highlight for selected patient
+          if (isSelected) {
+            // Add spotlight on selected patient
+            const spotlight = new THREE.SpotLight(0x9b87f5, 2, 10, Math.PI / 6, 0.5, 1);
+            spotlight.position.set(
+              bed.position.x + horizontalOffset,
+              bed.position.y + 5 + verticalOffset,
+              bed.position.z
+            );
+            spotlight.target = patientMesh;
+            spotlight.castShadow = true;
+            spotlight.shadow.bias = -0.001;
+            spotlight.name = `spotlight-${patient.id}`;
+            scene.add(spotlight);
+            
+            // Add a pulsing ring around the selected patient
+            const ringGeometry = new THREE.RingGeometry(1.2, 1.5, 32);
+            const ringMaterial = new THREE.MeshBasicMaterial({
+              color: 0x9b87f5, // Primary purple
+              side: THREE.DoubleSide,
+              transparent: true,
+              opacity: 0.7
+            });
+            
+            const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+            ring.position.set(
+              bed.position.x + horizontalOffset,
+              bed.position.y + 0.1 + verticalOffset,
+              bed.position.z
+            );
+            ring.rotation.x = -Math.PI / 2;
+            ring.name = `selection-ring-${patient.id}`;
+            
+            // Animate the ring
+            const animateRing = () => {
+              const time = Date.now() * 0.001;
+              ring.scale.setScalar(1 + Math.sin(time * 2) * 0.2);
+              ringMaterial.opacity = 0.5 + Math.sin(time * 2) * 0.2;
+            };
+            
+            (ring as any).animate = animateRing;
+            scene.add(ring);
+          }
           
           // Add criticality indicators for critical patients
           if (patient.status === 'critical') {
@@ -720,9 +834,9 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
             const alertMaterial = new THREE.MeshStandardMaterial({ 
               color: 0xea384c,
               emissive: 0xea384c,
-              emissiveIntensity: 0.9,
+              emissiveIntensity: isSelected ? 0.9 : 0.5,
               transparent: true,
-              opacity: 0.9
+              opacity: isSelected ? 0.9 : 0.5
             });
             
             const alert = new THREE.Mesh(alertGeometry, alertMaterial);
@@ -732,6 +846,9 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
               bed.position.y + 1.8 + verticalOffset,
               bed.position.z
             );
+            
+            // Add to patient meshes collection
+            patientMeshes[patient.id].push(alert);
             
             const alertPole = new THREE.CylinderGeometry(0.02, 0.02, 1.3, 16);
             const alertPoleMaterial = new THREE.MeshStandardMaterial({ 
@@ -760,7 +877,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
             scene.add(alert);
             
             // Add enhanced pulsing light effect for critical patients
-            const pulsingLight = new THREE.PointLight(0xff0000, 1, 3);
+            const pulsingLight = new THREE.PointLight(0xff0000, isSelected ? 1 : 0.5, 3);
             pulsingLight.name = "critical-light";
             pulsingLight.position.set(
               bed.position.x - 0.8 + horizontalOffset,
@@ -771,7 +888,9 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
             // Animate pulsing light
             const animatePulsingLight = () => {
               const time = Date.now() * 0.001;
-              pulsingLight.intensity = 0.7 + Math.sin(time * 5) * 0.3;
+              pulsingLight.intensity = isSelected ? 
+                (0.7 + Math.sin(time * 5) * 0.3) : 
+                (0.3 + Math.sin(time * 5) * 0.2);
             };
             
             (pulsingLight as any).animate = animatePulsingLight;
@@ -969,7 +1088,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       
       renderer.dispose();
     };
-  }, [hospital, selectedFloor, onBedSelect, onPatientSelect, hoveredObject]);
+  }, [hospital, selectedFloor, selectedPatientId, onBedSelect, onPatientSelect, hoveredObject]);
   
   return <div ref={mountRef} className="w-full h-full" />;
 };
