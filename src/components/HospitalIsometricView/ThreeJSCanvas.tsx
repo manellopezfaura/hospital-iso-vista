@@ -83,7 +83,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     // Map of all interactive objects
     const interactiveObjects: { [key: string]: THREE.Object3D } = {};
     
-    // Define room layout with walls
+    // Define room layout with walls for each floor
     const rooms: { position: [number, number], width: number, height: number }[] = [
       { position: [-7, -7], width: 6, height: 6 },
       { position: [0, -7], width: 6, height: 6 },
@@ -140,31 +140,79 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       })
     };
     
-    // Create floors
-    hospital.floors.forEach(floor => {
+    // Create floors - MODIFICADO PARA SEPARAR PLANTAS EN "ALL FLOORS" VIEW
+    hospital.floors.forEach((floor, floorIndex) => {
       // Skip if not the selected floor (unless none selected)
       if (selectedFloor && floor.id !== selectedFloor) {
         return;
       }
       
+      // Posicionar cada planta con espacio vertical entre ellas cuando se muestra "All Floors"
+      const verticalOffset = selectedFloor ? 0 : -floorIndex * 10;
+      const horizontalOffset = selectedFloor ? 0 : floorIndex * 3;
+      
       // Floor base
       const floorGeometry = new THREE.BoxGeometry(20, 0.2, 20);
       const floorMesh = new THREE.Mesh(floorGeometry, floorMaterial);
-      floorMesh.position.set(0, floor.level * 3, 0);
+      floorMesh.position.set(
+        horizontalOffset, 
+        floor.level * 3 + verticalOffset, 
+        0
+      );
       floorMesh.receiveShadow = true;
       scene.add(floorMesh);
+      
+      // Create floor label when in "All Floors" mode
+      if (!selectedFloor) {
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        
+        if (context) {
+          canvas.width = 512;
+          canvas.height = 128;
+          
+          context.fillStyle = '#ffffff';
+          context.fillRect(0, 0, canvas.width, canvas.height);
+          
+          context.font = 'bold 48px Arial';
+          context.fillStyle = '#000000';
+          context.textAlign = 'center';
+          context.fillText(floor.name, canvas.width / 2, canvas.height / 2 + 16);
+          
+          const texture = new THREE.CanvasTexture(canvas);
+          const labelMaterial = new THREE.MeshBasicMaterial({
+            map: texture,
+            transparent: true,
+            side: THREE.DoubleSide
+          });
+          
+          const floorLabelGeometry = new THREE.PlaneGeometry(6, 1.5);
+          const label = new THREE.Mesh(floorLabelGeometry, labelMaterial);
+          label.name = `floor-label-${floor.id}`;
+          label.position.set(
+            horizontalOffset - 6,
+            floor.level * 3 + verticalOffset + 3,
+            0
+          );
+          scene.add(label);
+        }
+      }
       
       // Create rooms with walls
       rooms.forEach(room => {
         const [x, z] = room.position;
-        const y = floor.level * 3;
+        const y = floor.level * 3 + verticalOffset;
         const width = room.width;
         const height = room.height;
         
         // Room floor with slightly different color to distinguish rooms
         const roomFloorGeometry = new THREE.BoxGeometry(width, 0.05, height);
         const roomFloorMesh = new THREE.Mesh(roomFloorGeometry, floorMaterial);
-        roomFloorMesh.position.set(x + width/2, y + 0.12, z + height/2);
+        roomFloorMesh.position.set(
+          x + width/2 + horizontalOffset, 
+          y + 0.12, 
+          z + height/2
+        );
         roomFloorMesh.receiveShadow = true;
         scene.add(roomFloorMesh);
         
@@ -175,7 +223,11 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
         // Back wall
         const backWallGeometry = new THREE.BoxGeometry(width, wallHeight, wallThickness);
         const backWall = new THREE.Mesh(backWallGeometry, wallMaterial);
-        backWall.position.set(x + width/2, y + wallHeight/2, z);
+        backWall.position.set(
+          x + width/2 + horizontalOffset, 
+          y + wallHeight/2, 
+          z
+        );
         backWall.castShadow = true;
         backWall.receiveShadow = true;
         scene.add(backWall);
@@ -183,7 +235,11 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
         // Left wall
         const leftWallGeometry = new THREE.BoxGeometry(wallThickness, wallHeight, height);
         const leftWall = new THREE.Mesh(leftWallGeometry, wallMaterial);
-        leftWall.position.set(x, y + wallHeight/2, z + height/2);
+        leftWall.position.set(
+          x + horizontalOffset, 
+          y + wallHeight/2, 
+          z + height/2
+        );
         leftWall.castShadow = true;
         leftWall.receiveShadow = true;
         scene.add(leftWall);
@@ -197,7 +253,11 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
           // Bottom wall segment
           const bottomWallGeometry = new THREE.BoxGeometry(wallThickness, wallHeight, wallSegmentWidth);
           const bottomWall = new THREE.Mesh(bottomWallGeometry, wallMaterial);
-          bottomWall.position.set(x + width, y + wallHeight/2, z + wallSegmentWidth/2);
+          bottomWall.position.set(
+            x + width + horizontalOffset, 
+            y + wallHeight/2, 
+            z + wallSegmentWidth/2
+          );
           bottomWall.castShadow = true;
           bottomWall.receiveShadow = true;
           scene.add(bottomWall);
@@ -205,7 +265,11 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
           // Top wall segment
           const topWallGeometry = new THREE.BoxGeometry(wallThickness, wallHeight, wallSegmentWidth);
           const topWall = new THREE.Mesh(topWallGeometry, wallMaterial);
-          topWall.position.set(x + width, y + wallHeight/2, z + height - wallSegmentWidth/2);
+          topWall.position.set(
+            x + width + horizontalOffset, 
+            y + wallHeight/2, 
+            z + height - wallSegmentWidth/2
+          );
           topWall.castShadow = true;
           topWall.receiveShadow = true;
           scene.add(topWall);
@@ -213,13 +277,21 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
           // Door frame top
           const doorFrameTopGeometry = new THREE.BoxGeometry(wallThickness, 0.2, doorWidth);
           const doorFrameTop = new THREE.Mesh(doorFrameTopGeometry, wallMaterial);
-          doorFrameTop.position.set(x + width, y + wallHeight - 0.1, z + height/2);
+          doorFrameTop.position.set(
+            x + width + horizontalOffset, 
+            y + wallHeight - 0.1, 
+            z + height/2
+          );
           scene.add(doorFrameTop);
         } else {
           // Full right wall
           const rightWallGeometry = new THREE.BoxGeometry(wallThickness, wallHeight, height);
           const rightWall = new THREE.Mesh(rightWallGeometry, wallMaterial);
-          rightWall.position.set(x + width, y + wallHeight/2, z + height/2);
+          rightWall.position.set(
+            x + width + horizontalOffset, 
+            y + wallHeight/2, 
+            z + height/2
+          );
           rightWall.castShadow = true;
           rightWall.receiveShadow = true;
           scene.add(rightWall);
@@ -237,6 +309,11 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       if (selectedFloor && floorObj && floorObj.id !== selectedFloor) {
         return;
       }
+      
+      // Calcular el desplazamiento horizontal y vertical según el piso
+      const floorIndex = hospital.floors.findIndex(f => f.type === bed.floor);
+      const verticalOffset = selectedFloor ? 0 : -floorIndex * 10;
+      const horizontalOffset = selectedFloor ? 0 : floorIndex * 3;
       
       console.log(`Creating bed: ${bed.id} with status: ${bed.status}, position:`, bed.position);
       
@@ -332,10 +409,10 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       nightstand.receiveShadow = true;
       bedGroup.add(nightstand);
       
-      // Position the entire bed group
+      // Position the entire bed group with offsets for "All Floors" view
       bedGroup.position.set(
-        bed.position.x,
-        bed.position.y + 0.2, // Raise beds slightly to avoid z-fighting with floor
+        bed.position.x + horizontalOffset,
+        bed.position.y + 0.2 + verticalOffset, // Raise beds slightly to avoid z-fighting with floor
         bed.position.z
       );
       
@@ -427,10 +504,10 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
           iconBody.position.y = 0.01;
           patientGroup.add(iconBody);
           
-          // Position the patient indicator near the bed
+          // Position the patient indicator near the bed with offsets for "All Floors" view
           patientGroup.position.set(
-            bed.position.x + 1.0,
-            bed.position.y + 0.8,
+            bed.position.x + 1.0 + horizontalOffset,
+            bed.position.y + 0.8 + verticalOffset,
             bed.position.z - 0.4
           );
           
@@ -452,8 +529,8 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
             const alert = new THREE.Mesh(alertGeometry, alertMaterial);
             alert.name = "critical-alert";
             alert.position.set(
-              bed.position.x - 0.8,
-              bed.position.y + 1.8,
+              bed.position.x - 0.8 + horizontalOffset,
+              bed.position.y + 1.8 + verticalOffset,
               bed.position.z
             );
             
@@ -462,8 +539,8 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
             const pole = new THREE.Mesh(alertPole, alertPoleMaterial);
             pole.name = "alert-pole";
             pole.position.set(
-              bed.position.x - 0.8,
-              bed.position.y + 1.2,
+              bed.position.x - 0.8 + horizontalOffset,
+              bed.position.y + 1.2 + verticalOffset,
               bed.position.z
             );
             
@@ -474,8 +551,8 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
             const pulsingLight = new THREE.PointLight(0xff0000, 1, 3);
             pulsingLight.name = "critical-light";
             pulsingLight.position.set(
-              bed.position.x,
-              bed.position.y + 1.5,
+              bed.position.x + horizontalOffset,
+              bed.position.y + 1.5 + verticalOffset,
               bed.position.z
             );
             scene.add(pulsingLight);
@@ -498,8 +575,8 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
             const monitor = new THREE.Mesh(monitorGeometry, monitorMaterial);
             monitor.name = "heartbeat-monitor";
             monitor.position.set(
-              bed.position.x + 0.8,
-              bed.position.y + 1.5,
+              bed.position.x + 0.8 + horizontalOffset,
+              bed.position.y + 1.5 + verticalOffset,
               bed.position.z - 0.7
             );
             scene.add(monitor);
@@ -570,10 +647,10 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
                 staffBody.position.y = 0.01;
                 staffGroup.add(staffBody);
                 
-                // Position the staff indicator near the bed, offset by index
+                // Position the staff indicator near the bed with offsets for "All Floors" view
                 staffGroup.position.set(
-                  bed.position.x + 0.6 + (index * 0.7),
-                  bed.position.y + 0.6,
+                  bed.position.x + 0.6 + (index * 0.7) + horizontalOffset,
+                  bed.position.y + 0.6 + verticalOffset,
                   bed.position.z + 0.8
                 );
                 
@@ -611,8 +688,8 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
         const label = new THREE.Mesh(roomLabelGeometry, labelMaterial);
         label.name = `room-label-${bed.room}`;
         label.position.set(
-          bed.position.x,
-          bed.position.y + 1.5,
+          bed.position.x + horizontalOffset,
+          bed.position.y + 1.5 + verticalOffset,
           bed.position.z - 0.3
         );
         label.rotation.x = -Math.PI / 4;
@@ -698,7 +775,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
               
               if (key.startsWith('bed-')) {
                 onBedSelect?.(key);
-              } else if (key.startsWith('patient-')) {
+              } else {
                 onPatientSelect?.(key);
               }
               break;

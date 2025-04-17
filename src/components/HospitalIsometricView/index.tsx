@@ -19,17 +19,18 @@ const HospitalIsometricView: React.FC = () => {
 
   const handleFloorChange = (floorId: string | null) => {
     setSelectedFloor(floorId);
-    setSelectedBedId(null);
-    setSelectedPatientId(null);
+    // No necesitamos resetear la selección de cama/paciente ya que ahora
+    // el usuario puede cambiar directamente de una selección a otra
   };
 
   const handleBedSelect = (bedId: string) => {
     setSelectedBedId(bedId);
-    setSelectedPatientId(null);
     
     const bed = hospital.beds.find(b => b.id === bedId);
     if (bed && bed.patientId) {
       setSelectedPatientId(bed.patientId);
+    } else {
+      setSelectedPatientId(null);
     }
     
     toast({
@@ -44,6 +45,8 @@ const HospitalIsometricView: React.FC = () => {
     const patient = hospital.patients.find(p => p.id === patientId);
     if (patient && patient.bedId) {
       setSelectedBedId(patient.bedId);
+    } else {
+      setSelectedBedId(null);
     }
     
     toast({
