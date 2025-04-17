@@ -65,19 +65,73 @@ export default {
 				},
 				hospital: {
 					bed: {
-						available: '#4ade80', // green-400
-						occupied: '#f97316', // orange-500
-						cleaning: '#60a5fa', // blue-400
+						// Colors for both dark and light mode
+						available: {
+							DEFAULT: '#4ade80', // green-400
+							light: '#22c55e', // green-500 for light mode
+							dark: '#4ade80', // green-400 for dark mode
+						},
+						occupied: {
+							DEFAULT: '#f97316', // orange-500
+							light: '#f97316', // orange-500 for light mode
+							dark: '#f97316', // orange-500 for dark mode
+						},
+						cleaning: {
+							DEFAULT: '#60a5fa', // blue-400
+							light: '#3b82f6', // blue-500 for light mode
+							dark: '#60a5fa', // blue-400 for dark mode
+						},
 					},
 					patient: {
-						critical: '#ef4444', // red-500
-						stable: '#22c55e', // green-500
-						discharged: '#6b7280', // gray-500
+						critical: {
+							DEFAULT: '#ef4444', // red-500
+							light: '#dc2626', // red-600 for light mode
+							dark: '#ef4444', // red-500 for dark mode
+						},
+						stable: {
+							DEFAULT: '#22c55e', // green-500
+							light: '#15803d', // green-700 for light mode
+							dark: '#22c55e', // green-500 for dark mode
+						},
+						discharged: {
+							DEFAULT: '#6b7280', // gray-500
+							light: '#4b5563', // gray-600 for light mode
+							dark: '#6b7280', // gray-500 for dark mode
+						},
 					},
 					floor: {
-						base: '#d1d5db', // gray-300
-						grid: '#9ca3af', // gray-400
-						wall: '#e5e7eb', // gray-200
+						base: {
+							DEFAULT: '#d1d5db', // gray-300
+							light: '#f3f4f6', // gray-100 for light mode
+							dark: '#374151', // gray-700 for dark mode
+						},
+						grid: {
+							DEFAULT: '#9ca3af', // gray-400
+							light: '#d1d5db', // gray-300 for light mode
+							dark: '#6b7280', // gray-500 for dark mode
+						},
+						wall: {
+							DEFAULT: '#e5e7eb', // gray-200
+							light: '#ffffff', // white for light mode
+							dark: '#1f2937', // gray-800 for dark mode
+						},
+					},
+					equipment: {
+						normal: {
+							DEFAULT: '#14b8a6', // teal-500
+							light: '#0d9488', // teal-600 for light mode
+							dark: '#14b8a6', // teal-500 for dark mode
+						},
+						inactive: {
+							DEFAULT: '#6b7280', // gray-500
+							light: '#4b5563', // gray-600 for light mode
+							dark: '#6b7280', // gray-500 for dark mode
+						},
+						warning: {
+							DEFAULT: '#eab308', // yellow-500
+							light: '#ca8a04', // yellow-600 for light mode
+							dark: '#eab308', // yellow-500 for dark mode
+						}
 					}
 				}
 			},

@@ -7,7 +7,11 @@ import { generateHospitalData, updateBedStatus, updatePatientStatus } from '@/se
 import { Hospital, BedStatus, PatientStatus } from '@/types/hospital';
 import { useToast } from '@/hooks/use-toast';
 
-const HospitalIsometricView: React.FC = () => {
+interface HospitalIsometricViewProps {
+  isDarkMode?: boolean;
+}
+
+const HospitalIsometricView: React.FC<HospitalIsometricViewProps> = ({ isDarkMode = true }) => {
   const [hospital, setHospital] = useState<Hospital>(generateHospitalData());
   const [selectedFloor, setSelectedFloor] = useState<string | null>(null);
   const [selectedBedId, setSelectedBedId] = useState<string | null>(null);
@@ -101,6 +105,7 @@ const HospitalIsometricView: React.FC = () => {
             onFloorChange={handleFloorChange}
             onRefreshData={handleRefreshData}
             occupancyRate={occupancyRate}
+            isDarkMode={isDarkMode}
           />
           
           {(selectedBedId || selectedPatientId) && (
@@ -125,6 +130,7 @@ const HospitalIsometricView: React.FC = () => {
           selectedPatientId={selectedPatientId}
           onBedSelect={handleBedSelect}
           onPatientSelect={handlePatientSelect}
+          isDarkMode={isDarkMode}
         />
       </div>
     </div>
