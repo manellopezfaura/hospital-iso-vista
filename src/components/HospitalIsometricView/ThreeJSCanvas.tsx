@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { Hospital, Bed, Patient, Position, BedStatus, PatientStatus } from '@/types/hospital';
+import { Hospital, Bed, Patient, Position, BedStatus, PatientStatus, Floor } from '@/types/hospital';
 
 interface ThreeJSCanvasProps {
   hospital: Hospital;
@@ -219,21 +219,41 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     return patientGroup;
   };
   
-  const { floors, beds, patients } = useMemo(() => {
-    return {
-      floors: hospital.floors,
-      beds: hospital.beds,
-      patients: hospital.patients
+  const { floors, visibleBeds, visiblePatients } = useMemo(() => {
+    const allFloors = hospital.floors;
+    
+    if (selectedFloor) {
+      const currentFloor = allFloors.find(f => f.id === selectedFloor);
+      
+      if (currentFloor) {
+        const beds = hospital.beds.filter(bed => bed.floor === currentFloor.type);
+        const bedPatientIds = beds
+          .filter(bed => bed.patientId)
+          .map(bed => bed.patientId);
+        
+        const patients = hospital.patients.filter(
+          patient => bedPatientIds.includes(patient.id)
+        );
+        
+        return { floors: allFloors, visibleBeds: beds, visiblePatients: patients };
+      }
+    }
+    
+    return { 
+      floors: allFloors, 
+      visibleBeds: hospital.beds, 
+      visiblePatients: hospital.patients 
     };
-  }, [hospital]);
+  }, [hospital, selectedFloor]);
   
   useEffect(() => {
     if (!mountRef.current) return;
     
     console.log("Initializing ThreeJSCanvas with hospital data:", hospital);
+    console.log("Selected floor:", selectedFloor);
     console.log("Selected patient ID:", selectedPatientId);
     console.log("Dark mode enabled:", isDarkMode);
-    console.log("Number of beds:", beds.length);
+    console.log("Visible beds:", visibleBeds.length);
     
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(isDarkMode ? 0x1A1F2C : 0xF6F6F7);
@@ -656,20 +676,20 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     
     floors.forEach(floor => {
       const floorMesh = new THREE.Mesh(floorGeometry, floorMaterial);
-      floorMesh.position.y = floor.level * 2;
+      floorMesh.position.y = floor.level * 4;
       scene.add(floorMesh);
     });
     
-    beds.forEach(bed => {
+    visibleBeds.forEach(bed => {
       const bedPosition = positionToVector3(bed.position);
       const bedMesh = createHospitalBed(bedPosition, bed.id);
       scene.add(bedMesh);
       interactiveObjects[bed.id] = bedMesh;
     });
     
-    patients.forEach(patient => {
+    visiblePatients.forEach(patient => {
       if (patient.bedId) {
-        const associatedBed = beds.find(b => b.id === patient.bedId);
+        const associatedBed = visibleBeds.find(b => b.id === patient.bedId);
         if (associatedBed) {
           const bedPosition = associatedBed.position;
           const patientPosition = new THREE.Vector3(bedPosition.x, bedPosition.y + 0.45, bedPosition.z);
@@ -734,12 +754,15 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
           if (object.userData.type === 'bed') {
             object.scale.set(1, 1, 1);
           } else if (object.userData.type === 'patient') {
-            const patient = hospital.patients.find(p => p.id === object.userData.id);
+            const patient = visiblePatients.find(p => p.id === object.userData.id);
             if (patient && patient.bedId) {
-              const bed = hospital.beds.find(b => b.id === patient.bedId);
+              const bed = visibleBeds.find(b => b.id === patient.bedId);
               if (bed) {
-                const position = positionToVector3(bed.position);
-                object.position.y = position.y + 0.45;
+                const floorObj = floors.find(f => f.type === bed.floor);
+                if (floorObj) {
+                  const floorY = floorObj.level * 4;
+                  object.position.y = floorY + 0.65;
+                }
               }
             }
           }
@@ -803,7 +826,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
         scene.remove(object);
       });
     };
-  }, [mountRef, hospital, selectedFloor, selectedPatientId, isDarkMode, onBedSelect, onPatientSelect]);
+  }, [mountRef, hospital, selectedFloor, selectedPatientId, isDarkMode, visibleBeds, visiblePatients, onBedSelect, onPatientSelect]);
   
   return (
     <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
