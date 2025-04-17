@@ -94,27 +94,31 @@ const HospitalIsometricView: React.FC = () => {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full">
       <div className="lg:col-span-3 space-y-6">
-        <ControlPanel 
-          hospital={hospital}
-          selectedFloor={selectedFloor}
-          onFloorChange={handleFloorChange}
-          onRefreshData={handleRefreshData}
-          occupancyRate={occupancyRate}
-        />
-        
-        {(selectedBedId || selectedPatientId) && (
-          <DetailPanel 
+        <div className="sticky top-6">
+          <ControlPanel 
             hospital={hospital}
-            selectedBedId={selectedBedId}
-            selectedPatientId={selectedPatientId}
-            onClose={handleCloseDetail}
-            onUpdateBedStatus={handleUpdateBedStatus}
-            onUpdatePatientStatus={handleUpdatePatientStatus}
+            selectedFloor={selectedFloor}
+            onFloorChange={handleFloorChange}
+            onRefreshData={handleRefreshData}
+            occupancyRate={occupancyRate}
           />
-        )}
+          
+          {(selectedBedId || selectedPatientId) && (
+            <div className="mt-6 animate-fade-in">
+              <DetailPanel 
+                hospital={hospital}
+                selectedBedId={selectedBedId}
+                selectedPatientId={selectedPatientId}
+                onClose={handleCloseDetail}
+                onUpdateBedStatus={handleUpdateBedStatus}
+                onUpdatePatientStatus={handleUpdatePatientStatus}
+              />
+            </div>
+          )}
+        </div>
       </div>
       
-      <div className="lg:col-span-9 bg-muted rounded-lg overflow-hidden h-[70vh]">
+      <div className="lg:col-span-9 overflow-hidden h-[70vh] rounded-2xl shadow-lg border border-slate-200/60 dark:border-slate-700/60 backdrop-blur-sm bg-white/5 dark:bg-slate-900/5">
         <ThreeJSCanvas 
           hospital={hospital}
           selectedFloor={selectedFloor}
