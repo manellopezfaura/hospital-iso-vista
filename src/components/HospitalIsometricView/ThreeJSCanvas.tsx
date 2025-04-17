@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -700,7 +701,8 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       const material = isVisible ? floorMaterial : nonVisibleFloorMaterial;
       
       const floorMesh = new THREE.Mesh(floorGeometry, material);
-      floorMesh.position.y = floor.level * 4;
+      // Fix: Position the floor below objects, not above them
+      floorMesh.position.y = floor.level * 4 - 0.1; // Offset to position floor below objects
       floorMesh.receiveShadow = isVisible;
       scene.add(floorMesh);
       
@@ -714,14 +716,47 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
           opacity: 0.1
         });
         const wallOutlineMesh = new THREE.LineSegments(wallOutlineGeometry, wallOutlineMaterial);
-        wallOutlineMesh.position.y = floor.level * 4 + 1.5;
+        wallOutlineMesh.position.y = floor.level * 4 + 1.5; // Keep outline position
         scene.add(wallOutlineMesh);
       }
     });
     
+    // Update the creation of beds and patients with proper positions
     visibleBeds.forEach(bed => {
-      const bedPosition = positionToVector3(bed.position);
+      // Adjust the bed position to be above the floor
+      const bedPosition = new THREE.Vector3(
+        bed.position.x,
+        (bed.position.y !== undefined ? bed.position.y : 0) + 0.1, // Ensure above floor
+        bed.position.z
+      );
+      
       const bedMesh = createHospitalBed(bedPosition, bed.id);
+      
+      // Apply visual indication for bed status
+      if (bed.status === 'cleaning') {
+        // Add visual indicator for cleaning status
+        const indicatorGeometry = new THREE.SphereGeometry(0.2, 8, 8);
+        const indicatorMaterial = new THREE.MeshStandardMaterial({
+          color: 0xfbbd23, // Yellow for cleaning
+          emissive: 0xfbbd23,
+          emissiveIntensity: 0.5
+        });
+        const indicator = new THREE.Mesh(indicatorGeometry, indicatorMaterial);
+        indicator.position.set(0, 0.8, 0);
+        bedMesh.add(indicator);
+      } else if (bed.status === 'available') {
+        // Add visual indicator for available status
+        const indicatorGeometry = new THREE.SphereGeometry(0.2, 8, 8);
+        const indicatorMaterial = new THREE.MeshStandardMaterial({
+          color: 0x4ade80, // Green for available
+          emissive: 0x4ade80,
+          emissiveIntensity: 0.5
+        });
+        const indicator = new THREE.Mesh(indicatorGeometry, indicatorMaterial);
+        indicator.position.set(0, 0.8, 0);
+        bedMesh.add(indicator);
+      }
+      
       scene.add(bedMesh);
       interactiveObjects[bed.id] = bedMesh;
     });
@@ -730,12 +765,31 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       if (patient.bedId) {
         const associatedBed = visibleBeds.find(b => b.id === patient.bedId);
         if (associatedBed) {
-          const bedPosition = associatedBed.position;
-          const patientPosition = new THREE.Vector3(bedPosition.x, bedPosition.y + 0.45, bedPosition.z);
+          // Adjust patient position to be above the bed
+          const patientPosition = new THREE.Vector3(
+            associatedBed.position.x,
+            (associatedBed.position.y !== undefined ? associatedBed.position.y : 0) + 0.45,
+            associatedBed.position.z
+          );
           
           const isSelected = patient.id === selectedPatientId;
           
           const patientMesh = createPatient(patientPosition, patient.id, patient.status, isSelected);
+          
+          // Add additional indicators for patient status
+          if (patient.status === 'discharged') {
+            // Add visual indicator for discharged patients
+            const indicatorGeometry = new THREE.SphereGeometry(0.15, 8, 8);
+            const indicatorMaterial = new THREE.MeshStandardMaterial({
+              color: 0x8E9196, // Gray for discharged
+              emissive: 0x8E9196,
+              emissiveIntensity: 0.3
+            });
+            const indicator = new THREE.Mesh(indicatorGeometry, indicatorMaterial);
+            indicator.position.set(0, 0.9, -0.5);
+            patientMesh.add(indicator);
+          }
+          
           scene.add(patientMesh);
           interactiveObjects[patient.id] = patientMesh;
           patientGroups[patient.id] = patientMesh;
@@ -799,8 +853,9 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
               if (bed) {
                 const floorObj = visibleFloors.find(f => f.type === bed.floor);
                 if (floorObj) {
+                  // Fix: Update the position calculation
                   const floorY = floorObj.level * 4;
-                  object.position.y = floorY + 0.65;
+                  object.position.y = floorY + 0.65; // Ensure proper height above the floor
                 }
               }
             }

@@ -11,7 +11,7 @@ const generatePosition = (floorLevel: number, index: number, totalInRow: number 
   
   return {
     x: col * 3 - (totalInRow * 1.5),
-    y: floorLevel * 2, // Floor height
+    y: floorLevel * 4, // Update: Sync with floor level calculation in ThreeJSCanvas
     z: row * 3 - 5, // Negative to show beds in correct isometric view
   };
 };
