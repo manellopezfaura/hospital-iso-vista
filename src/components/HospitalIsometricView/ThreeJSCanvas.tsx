@@ -23,6 +23,46 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
   const mountRef = useRef<HTMLDivElement>(null);
   const [hoveredObject, setHoveredObject] = useState<string | null>(null);
   
+  // Helper function to create a debug bed for visual testing
+  const createDebugBed = (position: THREE.Vector3, id: string): THREE.Group => {
+    const bedGroup = new THREE.Group();
+    
+    // Create bed frame (simple box for debugging)
+    const frameGeometry = new THREE.BoxGeometry(0.9, 0.3, 2.1);
+    const frameMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0x8888ff, 
+      roughness: 0.4,
+      metalness: 0.7
+    });
+    const frame = new THREE.Mesh(frameGeometry, frameMaterial);
+    frame.position.y = 0.15;
+    frame.castShadow = true;
+    frame.receiveShadow = true;
+    bedGroup.add(frame);
+    
+    // Create mattress (simple box on top of frame)
+    const mattressGeometry = new THREE.BoxGeometry(0.8, 0.1, 2);
+    const mattressMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0xccccff, 
+      roughness: 0.5,
+      metalness: 0.0
+    });
+    const mattress = new THREE.Mesh(mattressGeometry, mattressMaterial);
+    mattress.position.y = 0.35;
+    mattress.castShadow = true;
+    mattress.receiveShadow = true;
+    bedGroup.add(mattress);
+    
+    // Position the bed at the given position
+    bedGroup.position.copy(position);
+    
+    // Set user data for interaction
+    bedGroup.userData.id = id;
+    bedGroup.userData.type = 'bed';
+    
+    return bedGroup;
+  };
+  
   // Performance optimization: memoize hospital data
   const { floors, beds, patients } = useMemo(() => {
     return {
