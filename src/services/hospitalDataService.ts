@@ -16,20 +16,20 @@ const generatePosition = (floorLevel: number, index: number, totalInRow: number 
   };
 };
 
-// Generate random status for beds
+// Generate random status for beds with more occupied beds for realism
 const generateBedStatus = (): BedStatus => {
   const rand = Math.random();
-  if (rand < 0.6) return 'occupied';
-  if (rand < 0.85) return 'available';
+  if (rand < 0.7) return 'occupied'; // Increased to 70% for more patients
+  if (rand < 0.9) return 'available';
   return 'cleaning';
 };
 
-// Generate random status for patients
+// Generate random status for patients with more realistic distribution
 const generatePatientStatus = (): PatientStatus => {
   const rand = Math.random();
-  if (rand < 0.15) return 'critical';
-  if (rand < 0.9) return 'stable';
-  return 'discharged';
+  if (rand < 0.2) return 'critical'; // 20% critical
+  if (rand < 0.9) return 'stable'; // 70% stable
+  return 'discharged'; // 10% discharged
 };
 
 // Generate random floor type
@@ -38,6 +38,23 @@ const generateFloorType = (index: number): FloorType => {
   if (index === 1) return 'ICU';
   if (index === 2) return 'Surgery';
   return 'General';
+};
+
+// Generate realistic patient names
+const generatePatientName = (): string => {
+  const firstNames = [
+    "James", "Mary", "John", "Patricia", "Robert", "Jennifer", "Michael", 
+    "Linda", "William", "Elizabeth", "David", "Susan", "Richard", "Jessica",
+    "Emma", "Olivia", "Noah", "Ava", "Liam", "Sophia", "Ethan", "Isabella"
+  ];
+  
+  const lastNames = [
+    "Smith", "Johnson", "Williams", "Jones", "Brown", "Davis", "Miller",
+    "Wilson", "Moore", "Taylor", "Anderson", "Thomas", "Jackson", "White",
+    "Harris", "Martin", "Thompson", "Garcia", "Martinez", "Robinson", "Clark"
+  ];
+  
+  return `${firstNames[Math.floor(Math.random() * firstNames.length)]} ${lastNames[Math.floor(Math.random() * lastNames.length)]}`;
 };
 
 // Generate mock hospital data
@@ -116,10 +133,10 @@ export const generateHospitalData = (): Hospital => {
           }
         });
         
-        // Create a patient
+        // Create a patient with a realistic name
         const patient: Patient = {
           id: patientId,
-          name: `Patient ${String.fromCharCode(65 + Math.floor(Math.random() * 26))} ${String.fromCharCode(65 + Math.floor(Math.random() * 26))}`,
+          name: generatePatientName(),
           status: generatePatientStatus(),
           assignedStaffIds: assignedStaff,
           admissionType: floorType as AdmissionType,
