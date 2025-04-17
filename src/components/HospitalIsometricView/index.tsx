@@ -35,8 +35,8 @@ const HospitalIsometricView: React.FC = () => {
     }
     
     toast({
-      title: "Bed selected",
-      description: `Viewing details for ${bed?.room || 'unknown bed'}`,
+      title: "Cama seleccionada",
+      description: `Viendo detalles de ${bed?.room || 'cama desconocida'}`,
     });
   };
 
@@ -52,8 +52,8 @@ const HospitalIsometricView: React.FC = () => {
     }
     
     toast({
-      title: "Patient selected",
-      description: `Viewing details for ${patient?.name || 'unknown patient'}`,
+      title: "Paciente seleccionado",
+      description: `Viendo detalles de ${patient?.name || 'paciente desconocido'}`,
     });
   };
 
@@ -66,8 +66,8 @@ const HospitalIsometricView: React.FC = () => {
     setHospital(prevHospital => updateBedStatus(prevHospital, bedId, status));
     
     toast({
-      title: "Bed status updated",
-      description: `Bed status changed to ${status}`,
+      title: "Estado de cama actualizado",
+      description: `Estado de cama cambiado a ${status}`,
     });
   };
 
@@ -75,8 +75,8 @@ const HospitalIsometricView: React.FC = () => {
     setHospital(prevHospital => updatePatientStatus(prevHospital, patientId, status));
     
     toast({
-      title: "Patient status updated",
-      description: `Patient status changed to ${status}`,
+      title: "Estado de paciente actualizado",
+      description: `Estado de paciente cambiado a ${status}`,
     });
   };
 
@@ -86,8 +86,8 @@ const HospitalIsometricView: React.FC = () => {
     setSelectedPatientId(null);
     
     toast({
-      title: "Data refreshed",
-      description: "Hospital data has been refreshed with new random values",
+      title: "Datos actualizados",
+      description: "Datos del hospital han sido actualizados con nuevos valores aleatorios",
     });
   };
 
