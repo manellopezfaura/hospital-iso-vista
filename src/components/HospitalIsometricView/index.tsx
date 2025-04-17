@@ -24,6 +24,7 @@ const HospitalIsometricView: React.FC = () => {
   };
 
   const handleBedSelect = (bedId: string) => {
+    // Simply update the selectedBedId, no need to check if one is already selected
     setSelectedBedId(bedId);
     
     const bed = hospital.beds.find(b => b.id === bedId);
@@ -40,6 +41,7 @@ const HospitalIsometricView: React.FC = () => {
   };
 
   const handlePatientSelect = (patientId: string) => {
+    // Simply update the selectedPatientId, no need to check if one is already selected
     setSelectedPatientId(patientId);
     
     const patient = hospital.patients.find(p => p.id === patientId);
