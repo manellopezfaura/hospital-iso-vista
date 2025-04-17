@@ -652,4 +652,55 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
           const animateMonitor = () => {
             const time = Date.now() * 0.001;
             const monitorMat = monitor.material as THREE.MeshStandardMaterial;
-            monitorMat.emissiveIntensity = 0.5 + Math.sin(time * 3) * 0.2
+            monitorMat.emissiveIntensity = 0.5 + Math.sin(time * 3) * 0.2;
+          };
+          (monitor as any).animate = animateMonitor;
+          
+          break;
+        }
+      }
+      
+      // Add the status light to the group if it exists
+      if (statusLight) {
+        group.add(statusLight);
+      }
+      
+      // Position the equipment
+      group.position.set(position.x, position.y, position.z);
+      
+      return group;
+    };
+    
+    // Rest of the ThreeJSCanvas component implementation...
+    // This is where you would add the rest of your code for rendering rooms, beds, patients, etc.
+    
+    // Clean up function
+    return () => {
+      if (mountRef.current) {
+        mountRef.current.removeChild(renderer.domElement);
+      }
+      
+      // Dispose of resources
+      renderer.dispose();
+      
+      // Dispose of geometries and materials
+      scene.traverse((object) => {
+        if (object instanceof THREE.Mesh) {
+          if (object.geometry) object.geometry.dispose();
+          
+          if (object.material) {
+            if (Array.isArray(object.material)) {
+              object.material.forEach(material => material.dispose());
+            } else {
+              object.material.dispose();
+            }
+          }
+        }
+      });
+    };
+  }, [hospital, selectedFloor, selectedPatientId, onBedSelect, onPatientSelect, isDarkMode]);
+  
+  return <div ref={mountRef} className="w-full h-full" />;
+};
+
+export default ThreeJSCanvas;
