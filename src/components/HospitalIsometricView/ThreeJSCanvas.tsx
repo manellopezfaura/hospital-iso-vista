@@ -1,5 +1,5 @@
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Hospital, Bed, Patient, Position, BedStatus, PatientStatus } from '@/types/hospital';
@@ -20,64 +20,95 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
   const mountRef = useRef<HTMLDivElement>(null);
   const [hoveredObject, setHoveredObject] = useState<string | null>(null);
   
+  // Performance optimization: memoize hospital data
+  const { floors, beds, patients } = useMemo(() => {
+    return {
+      floors: hospital.floors,
+      beds: hospital.beds,
+      patients: hospital.patients
+    };
+  }, [hospital]);
+  
   useEffect(() => {
     if (!mountRef.current) return;
     
     console.log("Initializing ThreeJSCanvas with hospital data:", hospital);
     
-    // Scene setup
+    // Scene setup with improved background
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x5f9ea0); // Teal background color
+    scene.background = new THREE.Color(0x1A1F2C); // Dark purple background for modern look
     
-    // Camera setup for isometric view
+    // Add fog for depth perception
+    scene.fog = new THREE.FogExp2(0x1A1F2C, 0.015);
+    
+    // Camera setup for isometric view with better positioning
     const aspect = mountRef.current.clientWidth / mountRef.current.clientHeight;
     const camera = new THREE.OrthographicCamera(
       -10 * aspect, 10 * aspect, 10, -10, 0.1, 1000
     );
-    camera.position.set(15, 15, 15); // Moved camera position to see more of the scene
+    camera.position.set(20, 20, 20);
     camera.lookAt(0, 0, 0);
     
-    // Renderer setup
+    // Enhanced renderer with better settings
     const renderer = new THREE.WebGLRenderer({ 
       antialias: true,
       powerPreference: "high-performance",
-      preserveDrawingBuffer: true
+      preserveDrawingBuffer: true,
+      alpha: true
     });
     renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
+    renderer.setPixelRatio(window.devicePixelRatio); // Improved rendering quality
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.outputColorSpace = THREE.SRGBColorSpace; // Better color reproduction
     mountRef.current.appendChild(renderer.domElement);
     
-    // Add orbit controls
+    // Improved orbit controls for smoother rotation
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
-    controls.dampingFactor = 0.15;
+    controls.dampingFactor = 0.08; // Smoother damping
     controls.minDistance = 10;
-    controls.maxDistance = 40;
-    controls.maxPolarAngle = Math.PI / 2.5; // Limit vertical rotation
+    controls.maxDistance = 60;
+    controls.maxPolarAngle = Math.PI / 2.2; // Limit vertical rotation
     controls.enableRotate = true;
-    controls.rotateSpeed = 0.5;
+    controls.rotateSpeed = 0.7; // Smoother rotation
     controls.enableZoom = true;
+    controls.zoomSpeed = 1.0;
+    controls.enablePan = true;
+    controls.panSpeed = 0.8;
     
-    // Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    // Enhanced lighting system
+    // Ambient light with slight blue tint
+    const ambientLight = new THREE.AmbientLight(0x6E59A5, 0.3);
     scene.add(ambientLight);
     
+    // Main directional light with shadows
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    directionalLight.position.set(10, 20, 10);
+    directionalLight.position.set(15, 25, 15);
     directionalLight.castShadow = true;
     directionalLight.shadow.mapSize.width = 2048;
     directionalLight.shadow.mapSize.height = 2048;
+    directionalLight.shadow.camera.near = 0.5;
+    directionalLight.shadow.camera.far = 100;
+    directionalLight.shadow.bias = -0.001;
     scene.add(directionalLight);
     
-    // Add point light for better visibility
-    const pointLight = new THREE.PointLight(0xffffff, 0.8, 50);
-    pointLight.position.set(0, 10, 0);
+    // Fill light for better illumination
+    const fillLight = new THREE.DirectionalLight(0x8B5CF6, 0.3);
+    fillLight.position.set(-15, 10, 15);
+    scene.add(fillLight);
+    
+    // Accent point light
+    const pointLight = new THREE.PointLight(0x0EA5E9, 1.0, 50);
+    pointLight.position.set(0, 15, 0);
     pointLight.castShadow = true;
+    pointLight.shadow.bias = -0.001;
     scene.add(pointLight);
     
-    // Raycaster for object selection
+    // Raycaster for object selection with improved precision
     const raycaster = new THREE.Raycaster();
+    raycaster.params.Line.threshold = 0.1;
+    raycaster.params.Points.threshold = 0.1;
     const mouse = new THREE.Vector2();
     
     // Map of all interactive objects
@@ -91,68 +122,86 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       { position: [0, 0], width: 6, height: 6 }
     ];
     
-    // Materials
+    // Enhanced materials with PBR properties
     const floorMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0x417f81, // Darker teal for floor
-      roughness: 0.7 
+      color: 0x403E43, // Charcoal gray
+      roughness: 0.7,
+      metalness: 0.3,
+      envMapIntensity: 0.8
     });
     
     const wallMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0xf5f5f5, // Off-white for walls
-      roughness: 0.9 
+      color: 0xF1F0FB, // Soft gray
+      roughness: 0.9,
+      metalness: 0.1,
+      envMapIntensity: 0.5
     });
     
     const bedFrameMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0xd6d6d6, // Light gray for bed frame
+      color: 0x9F9EA1, // Silver gray
       roughness: 0.4,
-      metalness: 0.3
+      metalness: 0.7,
+      envMapIntensity: 1.0
     });
     
     const bedSheetMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0x68b7b8, // Light teal for bedsheets
-      roughness: 0.5
+      color: 0xD3E4FD, // Soft blue
+      roughness: 0.5,
+      metalness: 0.0,
+      envMapIntensity: 0.5
     });
     
     const nightstandMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0xf0f0f0, // Light gray for nightstand
-      roughness: 0.6
+      color: 0x8A898C, // Medium gray
+      roughness: 0.6,
+      metalness: 0.4,
+      envMapIntensity: 0.7
     });
     
-    // Patient status materials based on criticality with higher emissive values
+    // Glossy patient status materials with glow effect
     const patientStatusMaterials = {
       critical: new THREE.MeshStandardMaterial({ 
         color: 0xea384c, // Red for critical
         emissive: 0xea384c,
-        emissiveIntensity: 0.7,
-        roughness: 0.3
+        emissiveIntensity: 0.9,
+        roughness: 0.3,
+        metalness: 0.2
       }),
       stable: new THREE.MeshStandardMaterial({ 
         color: 0x4ade80, // Green for stable
         emissive: 0x4ade80,
-        emissiveIntensity: 0.5,
-        roughness: 0.3
+        emissiveIntensity: 0.7,
+        roughness: 0.3,
+        metalness: 0.2
       }),
       discharged: new THREE.MeshStandardMaterial({ 
         color: 0x8E9196, // Gray for discharged
         emissive: 0x8E9196,
         emissiveIntensity: 0.2,
-        roughness: 0.3
+        roughness: 0.3,
+        metalness: 0.2
       })
     };
     
-    // Create floors - MODIFICADO PARA SEPARAR PLANTAS EN "ALL FLOORS" VIEW
-    hospital.floors.forEach((floor, floorIndex) => {
+    // Create environment map for shiny reflections
+    const cubeRenderTarget = new THREE.WebGLCubeRenderTarget(256);
+    cubeRenderTarget.texture.type = THREE.HalfFloatType;
+    const cubeCamera = new THREE.CubeCamera(1, 1000, cubeRenderTarget);
+    scene.add(cubeCamera);
+    
+    // Create floors with improved visuals
+    floors.forEach((floor, floorIndex) => {
       // Skip if not the selected floor (unless none selected)
       if (selectedFloor && floor.id !== selectedFloor) {
         return;
       }
       
-      // Posicionar cada planta con espacio vertical entre ellas cuando se muestra "All Floors"
+      // Position each floor with space in "All Floors" view
       const verticalOffset = selectedFloor ? 0 : -floorIndex * 10;
-      const horizontalOffset = selectedFloor ? 0 : floorIndex * 3;
+      const horizontalOffset = selectedFloor ? 0 : floorIndex * 5; // More spacing
       
-      // Floor base
-      const floorGeometry = new THREE.BoxGeometry(20, 0.2, 20);
+      // Create floor base with grid pattern
+      const floorGeometry = new THREE.BoxGeometry(21, 0.2, 21);
       const floorMesh = new THREE.Mesh(floorGeometry, floorMaterial);
       floorMesh.position.set(
         horizontalOffset, 
@@ -162,7 +211,18 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       floorMesh.receiveShadow = true;
       scene.add(floorMesh);
       
-      // Create floor label when in "All Floors" mode
+      // Add grid pattern to floor
+      const gridHelper = new THREE.GridHelper(20, 20, 0x9ca3af, 0x9ca3af);
+      gridHelper.position.set(
+        horizontalOffset, 
+        floor.level * 3 + verticalOffset + 0.11, 
+        0
+      );
+      gridHelper.material.opacity = 0.2;
+      gridHelper.material.transparent = true;
+      scene.add(gridHelper);
+      
+      // Create floor label with improved visuals
       if (!selectedFloor) {
         const canvas = document.createElement('canvas');
         const context = canvas.getContext('2d');
@@ -171,11 +231,27 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
           canvas.width = 512;
           canvas.height = 128;
           
-          context.fillStyle = '#ffffff';
+          // Create gradient background
+          const gradient = context.createLinearGradient(0, 0, canvas.width, 0);
+          gradient.addColorStop(0, '#9b87f5');
+          gradient.addColorStop(1, '#7E69AB');
+          
+          context.fillStyle = gradient;
           context.fillRect(0, 0, canvas.width, canvas.height);
           
+          // Add border
+          context.strokeStyle = '#ffffff';
+          context.lineWidth = 4;
+          context.strokeRect(2, 2, canvas.width - 4, canvas.height - 4);
+          
+          // Text with shadow
+          context.shadowColor = 'rgba(0, 0, 0, 0.4)';
+          context.shadowBlur = 5;
+          context.shadowOffsetX = 3;
+          context.shadowOffsetY = 3;
+          
           context.font = 'bold 48px Arial';
-          context.fillStyle = '#000000';
+          context.fillStyle = '#ffffff';
           context.textAlign = 'center';
           context.fillText(floor.name, canvas.width / 2, canvas.height / 2 + 16);
           
@@ -190,24 +266,39 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
           const label = new THREE.Mesh(floorLabelGeometry, labelMaterial);
           label.name = `floor-label-${floor.id}`;
           label.position.set(
-            horizontalOffset - 6,
-            floor.level * 3 + verticalOffset + 3,
+            horizontalOffset - 8,
+            floor.level * 3 + verticalOffset + 4,
             0
           );
+          
+          // Make label hover and rotate slightly for dynamic effect
+          const labelAnimation = () => {
+            const time = Date.now() * 0.001;
+            label.position.y = floor.level * 3 + verticalOffset + 4 + Math.sin(time) * 0.1;
+            label.rotation.z = Math.sin(time * 0.5) * 0.03;
+          };
+          
+          (label as any).animate = labelAnimation;
           scene.add(label);
         }
       }
       
-      // Create rooms with walls
+      // Create rooms with glass walls for modern look
       rooms.forEach(room => {
         const [x, z] = room.position;
         const y = floor.level * 3 + verticalOffset;
         const width = room.width;
         const height = room.height;
         
-        // Room floor with slightly different color to distinguish rooms
+        // Room floor with slight accent color
         const roomFloorGeometry = new THREE.BoxGeometry(width, 0.05, height);
-        const roomFloorMesh = new THREE.Mesh(roomFloorGeometry, floorMaterial);
+        const roomFloorMaterial = new THREE.MeshStandardMaterial({
+          color: 0x417f81, // Teal accent
+          roughness: 0.5,
+          metalness: 0.3
+        });
+        
+        const roomFloorMesh = new THREE.Mesh(roomFloorGeometry, roomFloorMaterial);
         roomFloorMesh.position.set(
           x + width/2 + horizontalOffset, 
           y + 0.12, 
@@ -216,13 +307,25 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
         roomFloorMesh.receiveShadow = true;
         scene.add(roomFloorMesh);
         
-        // Create walls
+        // Create walls with glass effect
         const wallHeight = 2.0;
-        const wallThickness = 0.15;
+        const wallThickness = 0.08; // Thinner walls
+        
+        // Wall material with transparency for glass effect
+        const glassWallMaterial = new THREE.MeshPhysicalMaterial({
+          color: 0xffffff,
+          transparent: true,
+          opacity: 0.3,
+          roughness: 0.1,
+          metalness: 0.2,
+          transmission: 0.9,
+          ior: 1.5,
+          reflectivity: 0.5,
+        });
         
         // Back wall
         const backWallGeometry = new THREE.BoxGeometry(width, wallHeight, wallThickness);
-        const backWall = new THREE.Mesh(backWallGeometry, wallMaterial);
+        const backWall = new THREE.Mesh(backWallGeometry, glassWallMaterial);
         backWall.position.set(
           x + width/2 + horizontalOffset, 
           y + wallHeight/2, 
@@ -234,7 +337,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
         
         // Left wall
         const leftWallGeometry = new THREE.BoxGeometry(wallThickness, wallHeight, height);
-        const leftWall = new THREE.Mesh(leftWallGeometry, wallMaterial);
+        const leftWall = new THREE.Mesh(leftWallGeometry, glassWallMaterial);
         leftWall.position.set(
           x + horizontalOffset, 
           y + wallHeight/2, 
@@ -244,15 +347,21 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
         leftWall.receiveShadow = true;
         scene.add(leftWall);
         
-        // Create door openings in some walls
+        // Create door openings in some walls with frame
         if ((x === 0 && z === -7) || (x === -7 && z === 0)) {
-          // Right wall with door opening
+          // Door frame with chrome finish
+          const doorFrameMaterial = new THREE.MeshStandardMaterial({
+            color: 0xd6d6d6,
+            roughness: 0.1,
+            metalness: 0.8
+          });
+          
           const doorWidth = 1.5;
           const wallSegmentWidth = (height - doorWidth) / 2;
           
           // Bottom wall segment
           const bottomWallGeometry = new THREE.BoxGeometry(wallThickness, wallHeight, wallSegmentWidth);
-          const bottomWall = new THREE.Mesh(bottomWallGeometry, wallMaterial);
+          const bottomWall = new THREE.Mesh(bottomWallGeometry, glassWallMaterial);
           bottomWall.position.set(
             x + width + horizontalOffset, 
             y + wallHeight/2, 
@@ -264,7 +373,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
           
           // Top wall segment
           const topWallGeometry = new THREE.BoxGeometry(wallThickness, wallHeight, wallSegmentWidth);
-          const topWall = new THREE.Mesh(topWallGeometry, wallMaterial);
+          const topWall = new THREE.Mesh(topWallGeometry, glassWallMaterial);
           topWall.position.set(
             x + width + horizontalOffset, 
             y + wallHeight/2, 
@@ -274,19 +383,37 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
           topWall.receiveShadow = true;
           scene.add(topWall);
           
-          // Door frame top
-          const doorFrameTopGeometry = new THREE.BoxGeometry(wallThickness, 0.2, doorWidth);
-          const doorFrameTop = new THREE.Mesh(doorFrameTopGeometry, wallMaterial);
+          // Door frame - top
+          const doorFrameTopGeometry = new THREE.BoxGeometry(wallThickness * 2, 0.15, doorWidth + 0.2);
+          const doorFrameTop = new THREE.Mesh(doorFrameTopGeometry, doorFrameMaterial);
           doorFrameTop.position.set(
             x + width + horizontalOffset, 
             y + wallHeight - 0.1, 
             z + height/2
           );
           scene.add(doorFrameTop);
+          
+          // Door frame - sides
+          const leftFrameGeometry = new THREE.BoxGeometry(wallThickness * 2, wallHeight, 0.08);
+          const leftFrame = new THREE.Mesh(leftFrameGeometry, doorFrameMaterial);
+          leftFrame.position.set(
+            x + width + horizontalOffset,
+            y + wallHeight/2,
+            z + height/2 - doorWidth/2
+          );
+          scene.add(leftFrame);
+          
+          const rightFrame = new THREE.Mesh(leftFrameGeometry, doorFrameMaterial);
+          rightFrame.position.set(
+            x + width + horizontalOffset,
+            y + wallHeight/2,
+            z + height/2 + doorWidth/2
+          );
+          scene.add(rightFrame);
         } else {
           // Full right wall
           const rightWallGeometry = new THREE.BoxGeometry(wallThickness, wallHeight, height);
-          const rightWall = new THREE.Mesh(rightWallGeometry, wallMaterial);
+          const rightWall = new THREE.Mesh(rightWallGeometry, glassWallMaterial);
           rightWall.position.set(
             x + width + horizontalOffset, 
             y + wallHeight/2, 
@@ -299,76 +426,83 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       });
     });
     
-    console.log(`Total beds to render: ${hospital.beds.length}`);
+    console.log(`Total beds to render: ${beds.length}`);
     
-    // Create beds and nightstands - ENHANCED VISIBILITY and CRITICALITY
-    hospital.beds.forEach(bed => {
-      const floorObj = hospital.floors.find(f => f.type === bed.floor);
+    // Create beds with modern design
+    beds.forEach(bed => {
+      const floorObj = floors.find(f => f.type === bed.floor);
       
       // Skip if not the selected floor (unless none selected)
       if (selectedFloor && floorObj && floorObj.id !== selectedFloor) {
         return;
       }
       
-      // Calcular el desplazamiento horizontal y vertical según el piso
-      const floorIndex = hospital.floors.findIndex(f => f.type === bed.floor);
+      // Calculate offset based on floor
+      const floorIndex = floors.findIndex(f => f.type === bed.floor);
       const verticalOffset = selectedFloor ? 0 : -floorIndex * 10;
-      const horizontalOffset = selectedFloor ? 0 : floorIndex * 3;
+      const horizontalOffset = selectedFloor ? 0 : floorIndex * 5;
       
       console.log(`Creating bed: ${bed.id} with status: ${bed.status}, position:`, bed.position);
       
-      // Bed status determines color
+      // Bed status determines color with higher contrast
       let statusIndicatorColor: number;
       switch (bed.status) {
         case 'available':
           statusIndicatorColor = 0x4ade80; // Green
           break;
         case 'occupied':
-          statusIndicatorColor = 0xf97316; // Orange
+          statusIndicatorColor = 0xF97316; // Bright orange
           break;
         case 'cleaning':
-          statusIndicatorColor = 0x60a5fa; // Blue
+          statusIndicatorColor = 0x0EA5E9; // Ocean blue
           break;
         default:
-          statusIndicatorColor = 0x9ca3af; // Gray
+          statusIndicatorColor = 0x8E9196; // Neutral gray
       }
       
       // Create bed group
       const bedGroup = new THREE.Group();
       bedGroup.name = `bed-group-${bed.id}`;
       
-      // Create bed frame - with enhanced dimensions for visibility
-      const bedFrameGeometry = new THREE.BoxGeometry(1.4, 0.4, 2.2);
+      // Modern bed frame design
+      const bedFrameGeometry = new THREE.BoxGeometry(1.5, 0.25, 2.2);
       const bedFrame = new THREE.Mesh(bedFrameGeometry, bedFrameMaterial);
       bedFrame.name = "bed-frame";
-      bedFrame.position.set(0, 0.3, 0);
+      bedFrame.position.set(0, 0.25, 0);
       bedFrame.castShadow = true;
       bedFrame.receiveShadow = true;
       bedGroup.add(bedFrame);
       
-      // Create bed mattress with enhanced dimensions
-      const mattressGeometry = new THREE.BoxGeometry(1.2, 0.15, 2.0);
+      // Create mattress with rounded edges
+      const mattressGeometry = new THREE.BoxGeometry(1.3, 0.15, 2.0);
+      const mattressEdges = new THREE.BoxGeometry(1.3, 0.15, 2.0);
+      mattressEdges.translate(0, 0, 0);
       const mattress = new THREE.Mesh(mattressGeometry, bedSheetMaterial);
       mattress.name = "mattress";
       mattress.position.set(0, 0.45, 0);
       mattress.castShadow = true;
       bedGroup.add(mattress);
       
-      // Create pillow
-      const pillowGeometry = new THREE.BoxGeometry(0.9, 0.12, 0.5);
-      const pillowMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 });
+      // Create pillow with better shape
+      const pillowGeometry = new THREE.BoxGeometry(0.9, 0.15, 0.5);
+      pillowGeometry.translate(0, 0, 0);
+      const pillowMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0xffffff, 
+        roughness: 0.5,
+        metalness: 0.05
+      });
       const pillow = new THREE.Mesh(pillowGeometry, pillowMaterial);
       pillow.name = "pillow";
       pillow.position.set(0, 0.52, -0.7);
       bedGroup.add(pillow);
       
-      // Create legs
-      const legGeometry = new THREE.BoxGeometry(0.12, 0.3, 0.12);
+      // Create sleek modern legs
+      const legGeometry = new THREE.BoxGeometry(0.08, 0.25, 0.08);
       const legPositions = [
-        [-0.5, -0.15, 0.95],
-        [0.5, -0.15, 0.95],
-        [-0.5, -0.15, -0.95],
-        [0.5, -0.15, -0.95]
+        [-0.6, -0.12, 0.95],
+        [0.6, -0.12, 0.95],
+        [-0.6, -0.12, -0.95],
+        [0.6, -0.12, -0.95]
       ];
       
       legPositions.forEach((position, i) => {
@@ -379,12 +513,14 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
         bedGroup.add(leg);
       });
       
-      // Create status indicator (small sphere above bed) - ENHANCED VISIBILITY
-      const indicatorGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+      // Create status indicator (holographic-style floating sphere)
+      const indicatorGeometry = new THREE.SphereGeometry(0.3, 32, 32);
       const indicatorMaterial = new THREE.MeshStandardMaterial({ 
         color: statusIndicatorColor,
         emissive: statusIndicatorColor,
-        emissiveIntensity: 0.7,
+        emissiveIntensity: 0.9,
+        transparent: true,
+        opacity: 0.9
       });
       
       const indicator = new THREE.Mesh(indicatorGeometry, indicatorMaterial);
@@ -392,15 +528,29 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       indicator.position.set(0, 1.8, -0.8);
       
       // Add pole for indicator
-      const poleGeometry = new THREE.CylinderGeometry(0.03, 0.03, 1.3, 8);
-      const poleMaterial = new THREE.MeshStandardMaterial({ color: 0xb0b0b0 });
+      const poleGeometry = new THREE.CylinderGeometry(0.02, 0.02, 1.3, 16);
+      const poleMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0xd6d6d6,
+        metalness: 0.7,
+        roughness: 0.2
+      });
       const pole = new THREE.Mesh(poleGeometry, poleMaterial);
       pole.name = "indicator-pole";
       pole.position.set(0, 1.2, -0.8);
       bedGroup.add(pole);
       bedGroup.add(indicator);
       
-      // Create nightstand
+      // Animate the indicator to float and pulse
+      const animateIndicator = () => {
+        const time = Date.now() * 0.001;
+        indicator.position.y = 1.8 + Math.sin(time * 2) * 0.05;
+        indicator.scale.setScalar(0.9 + Math.sin(time * 3) * 0.1);
+      };
+      
+      // Store animation function
+      (indicator as any).animate = animateIndicator;
+      
+      // Create modernized nightstand
       const nightstandGeometry = new THREE.BoxGeometry(0.7, 0.7, 0.7);
       const nightstand = new THREE.Mesh(nightstandGeometry, nightstandMaterial);
       nightstand.name = "nightstand";
@@ -409,32 +559,54 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       nightstand.receiveShadow = true;
       bedGroup.add(nightstand);
       
+      // Add detail to nightstand - tablet/screen
+      const tabletGeometry = new THREE.BoxGeometry(0.5, 0.3, 0.05);
+      const tabletMaterial = new THREE.MeshStandardMaterial({
+        color: 0x222222,
+        roughness: 0.1,
+        metalness: 0.8,
+        emissive: 0x1EAEDB, 
+        emissiveIntensity: 0.2
+      });
+      
+      const tablet = new THREE.Mesh(tabletGeometry, tabletMaterial);
+      tablet.position.set(-0.9, 0.75, -0.5);
+      tablet.rotateX(-Math.PI / 4);
+      bedGroup.add(tablet);
+      
       // Position the entire bed group with offsets for "All Floors" view
       bedGroup.position.set(
         bed.position.x + horizontalOffset,
-        bed.position.y + 0.2 + verticalOffset, // Raise beds slightly to avoid z-fighting with floor
+        bed.position.y + 0.2 + verticalOffset,
         bed.position.z
       );
       
-      // Add outline to make bed more visible
-      const bedOutlineGeometry = new THREE.BoxGeometry(1.5, 0.46, 2.3);
+      // Add glow effect outline to make bed more visible
+      const bedOutlineGeometry = new THREE.BoxGeometry(1.6, 0.3, 2.3);
       const bedOutlineMaterial = new THREE.MeshBasicMaterial({
-        color: 0x000000,
-        side: THREE.BackSide
+        color: statusIndicatorColor,
+        side: THREE.BackSide,
+        transparent: true,
+        opacity: 0.1
       });
       const bedOutline = new THREE.Mesh(bedOutlineGeometry, bedOutlineMaterial);
       bedOutline.name = "bed-outline";
       bedOutline.position.copy(bedFrame.position);
       bedGroup.add(bedOutline);
       
+      // Add a colored light beneath the bed for ambient glow
+      const bedLight = new THREE.PointLight(statusIndicatorColor, 0.5, 3);
+      bedLight.position.set(0, -0.1, 0);
+      bedGroup.add(bedLight);
+      
       scene.add(bedGroup);
       
       // Make bed interactive
       interactiveObjects[bed.id] = bedGroup;
       
-      // If there's a patient in the bed, add a patient indicator with ENHANCED CRITICALITY VISUALIZATION
+      // If there's a patient in the bed, add a patient indicator with enhanced visuals
       if (bed.patientId) {
-        const patient = hospital.patients.find(p => p.id === bed.patientId);
+        const patient = patients.find(p => p.id === bed.patientId);
         
         if (patient) {
           console.log(`Adding patient: ${patient.id} with status: ${patient.status} to bed: ${bed.id}`);
@@ -455,8 +627,8 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
               patientMaterial = patientStatusMaterials.stable;
           }
           
-          // Create patient visualization on the bed - LARGER AND MORE VISIBLE
-          const patientGeometry = new THREE.CapsuleGeometry(0.45, 1.2, 4, 8);
+          // Create patient visualization with improved model
+          const patientGeometry = new THREE.CapsuleGeometry(0.45, 1.2, 8, 16);
           const patientMesh = new THREE.Mesh(patientGeometry, patientMaterial);
           patientMesh.name = "patient-body";
           patientMesh.position.set(0, 0.8, 0);
@@ -465,23 +637,36 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
           patientMesh.castShadow = true;
           bedGroup.add(patientMesh);
           
-          // Add patient head - LARGER
-          const headGeometry = new THREE.SphereGeometry(0.25, 16, 16);
+          // Animate patient "breathing" if not discharged
+          if (patient.status !== 'discharged') {
+            const animatePatient = () => {
+              const time = Date.now() * 0.001;
+              const scale = 1 + Math.sin(time * 1.5) * 0.03;
+              patientMesh.scale.set(scale, 0.45, 0.6);
+            };
+            
+            (patientMesh as any).animate = animatePatient;
+          }
+          
+          // Add patient head with better shape
+          const headGeometry = new THREE.SphereGeometry(0.25, 24, 24);
           const head = new THREE.Mesh(headGeometry, patientMaterial);
           head.name = "patient-head";
           head.position.set(0, 0.8, -0.7);
           head.castShadow = true;
           bedGroup.add(head);
           
-          // Create patient indicator (circle with person icon)
+          // Create holographic patient indicator
           const patientGroup = new THREE.Group();
           patientGroup.name = `patient-indicator-${patient.id}`;
           
-          // Circle background - LARGER AND MORE VISIBLE
+          // Floating holographic-style circle
           const circleGeometry = new THREE.CircleGeometry(0.4, 32);
           const circleMaterial = new THREE.MeshBasicMaterial({ 
-            color: 0x33a1c9, // Teal blue circle 
-            side: THREE.DoubleSide 
+            color: 0x33a1c9, 
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.7
           });
           
           const circle = new THREE.Mesh(circleGeometry, circleMaterial);
@@ -489,10 +674,14 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
           circle.rotation.x = -Math.PI / 2;
           patientGroup.add(circle);
           
-          // Create simplified patient icon (small cylinder for head, box for body)
+          // Create modern patient icon
           const iconHeadGeometry = new THREE.SphereGeometry(0.15, 16, 16);
           const iconBodyGeometry = new THREE.BoxGeometry(0.2, 0.2, 0.24);
-          const iconMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+          const iconMaterial = new THREE.MeshBasicMaterial({ 
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.9
+          });
           
           const iconHead = new THREE.Mesh(iconHeadGeometry, iconMaterial);
           iconHead.name = "patient-icon-head";
@@ -504,10 +693,19 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
           iconBody.position.y = 0.01;
           patientGroup.add(iconBody);
           
-          // Position the patient indicator near the bed with offsets for "All Floors" view
+          // Make icon float and rotate
+          const animateIcon = () => {
+            const time = Date.now() * 0.001;
+            patientGroup.position.y = bed.position.y + 0.9 + verticalOffset + Math.sin(time * 1.5) * 0.05;
+            patientGroup.rotation.y = time * 0.5;
+          };
+          
+          (patientGroup as any).animate = animateIcon;
+          
+          // Position the patient indicator
           patientGroup.position.set(
-            bed.position.x + 1.0 + horizontalOffset,
-            bed.position.y + 0.8 + verticalOffset,
+            bed.position.x + 1.2 + horizontalOffset,
+            bed.position.y + 0.9 + verticalOffset,
             bed.position.z - 0.4
           );
           
@@ -516,14 +714,16 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
           // Make patient interactive
           interactiveObjects[patient.id] = patientGroup;
           
-          // Add criticality indicators based on patient status
+          // Add criticality indicators for critical patients
           if (patient.status === 'critical') {
-            // Add alert cone (red warning)
+            // Add alert cone (red warning) with improved design
             const alertGeometry = new THREE.ConeGeometry(0.25, 0.5, 16);
             const alertMaterial = new THREE.MeshStandardMaterial({ 
               color: 0xea384c,
               emissive: 0xea384c,
-              emissiveIntensity: 0.8
+              emissiveIntensity: 0.9,
+              transparent: true,
+              opacity: 0.9
             });
             
             const alert = new THREE.Mesh(alertGeometry, alertMaterial);
@@ -534,8 +734,12 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
               bed.position.z
             );
             
-            const alertPole = new THREE.CylinderGeometry(0.03, 0.03, 1.3, 8);
-            const alertPoleMaterial = new THREE.MeshStandardMaterial({ color: 0xb0b0b0 });
+            const alertPole = new THREE.CylinderGeometry(0.02, 0.02, 1.3, 16);
+            const alertPoleMaterial = new THREE.MeshStandardMaterial({ 
+              color: 0xd6d6d6,
+              metalness: 0.7,
+              roughness: 0.2
+            });
             const pole = new THREE.Mesh(alertPole, alertPoleMaterial);
             pole.name = "alert-pole";
             pole.position.set(
@@ -544,10 +748,19 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
               bed.position.z
             );
             
+            // Animate alert cone
+            const animateAlert = () => {
+              const time = Date.now() * 0.001;
+              alert.rotation.y = time * 2;
+              alert.position.y = bed.position.y + 1.8 + verticalOffset + Math.sin(time * 3) * 0.05;
+            };
+            
+            (alert as any).animate = animateAlert;
+            
             scene.add(pole);
             scene.add(alert);
             
-            // Add pulsing light effect for critical patients
+            // Add enhanced pulsing light effect for critical patients
             const pulsingLight = new THREE.PointLight(0xff0000, 1, 3);
             pulsingLight.name = "critical-light";
             pulsingLight.position.set(
@@ -568,63 +781,99 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
             (pulsingLight as any).pulseParams = pulseParams;
           }
           
-          // Add heartbeat monitor for critical patients
+          // Add modernized heartbeat monitor for critical patients
           if (patient.status === 'critical') {
-            const monitorGeometry = new THREE.BoxGeometry(0.6, 0.4, 0.05);
-            const monitorMaterial = new THREE.MeshBasicMaterial({ color: 0x222222 });
+            // Create futuristic digital monitor
+            const monitorGeometry = new THREE.BoxGeometry(0.8, 0.5, 0.08);
+            const monitorMaterial = new THREE.MeshStandardMaterial({ 
+              color: 0x222222,
+              roughness: 0.2,
+              metalness: 0.8,
+              emissive: 0x222222,
+              emissiveIntensity: 0.2
+            });
+            
             const monitor = new THREE.Mesh(monitorGeometry, monitorMaterial);
             monitor.name = "heartbeat-monitor";
             monitor.position.set(
-              bed.position.x + 0.8 + horizontalOffset,
-              bed.position.y + 1.5 + verticalOffset,
+              bed.position.x + 0.9 + horizontalOffset,
+              bed.position.y + 1.6 + verticalOffset,
               bed.position.z - 0.7
             );
             scene.add(monitor);
             
-            // Create a heartbeat line
+            // Mount for monitor
+            const mountGeometry = new THREE.CylinderGeometry(0.03, 0.03, 1.0, 8);
+            const mount = new THREE.Mesh(mountGeometry, poleMaterial);
+            mount.position.set(
+              bed.position.x + 0.9 + horizontalOffset,
+              bed.position.y + 1.1 + verticalOffset,
+              bed.position.z - 0.7
+            );
+            scene.add(mount);
+            
+            // Create a dynamic heartbeat line
             const heartbeatPoints = [];
-            for (let i = 0; i < 12; i++) {
-              const x = (i - 6) * 0.04;
-              let y = 0;
-              
-              // Create ECG-like pattern
-              if (i === 4) y = 0.1;
-              if (i === 5) y = -0.12;
-              if (i === 6) y = 0.18;
-              if (i === 7) y = -0.06;
-              
-              heartbeatPoints.push(new THREE.Vector3(x, y, 0));
+            for (let i = 0; i < 15; i++) {
+              const x = (i - 7.5) * 0.05;
+              heartbeatPoints.push(new THREE.Vector3(x, 0, 0));
             }
             
             const heartbeatGeometry = new THREE.BufferGeometry().setFromPoints(heartbeatPoints);
             const heartbeatMaterial = new THREE.LineBasicMaterial({ 
               color: 0x00ff00,
-              linewidth: 2 
+              linewidth: 2
             });
             const heartbeatLine = new THREE.Line(heartbeatGeometry, heartbeatMaterial);
             heartbeatLine.name = "heartbeat-line";
             
             heartbeatLine.position.copy(monitor.position);
-            heartbeatLine.position.z += 0.03;
+            heartbeatLine.position.z += 0.05;
             scene.add(heartbeatLine);
+            
+            // Animate heartbeat
+            const animateHeartbeat = () => {
+              const time = Date.now() * 0.001;
+              const positions = heartbeatGeometry.attributes.position.array as number[];
+              
+              for (let i = 0; i < positions.length / 3; i++) {
+                const idx = i * 3 + 1; // y-coordinate
+                
+                // Create ECG-like pattern that moves
+                const offset = (time * 4) % 3;
+                const x = positions[i * 3] + offset;
+                
+                if (x > -0.1 && x < 0.1) {
+                  positions[idx] = Math.sin(x * Math.PI * 5) * 0.15;
+                } else {
+                  positions[idx] = Math.sin(x) * 0.02;
+                }
+              }
+              
+              heartbeatGeometry.attributes.position.needsUpdate = true;
+            };
+            
+            (heartbeatLine as any).animate = animateHeartbeat;
           }
           
-          // If staff assigned to patient, add staff indicators
+          // If staff assigned to patient, add improved staff indicators
           if (patient.assignedStaffIds.length > 0) {
             patient.assignedStaffIds.forEach((staffId, index) => {
               const staff = hospital.staff.find(s => s.id === staffId);
               if (staff) {
                 console.log(`Adding staff: ${staffId} for patient: ${patient.id}`);
                 
-                // Create staff indicator
+                // Create modern staff indicator
                 const staffGroup = new THREE.Group();
                 staffGroup.name = `staff-indicator-${staffId}`;
                 
-                // Circle background
-                const staffCircleGeometry = new THREE.CircleGeometry(0.3, 32);
+                // Circle background with glow effect
+                const staffCircleGeometry = new THREE.RingGeometry(0.25, 0.3, 32);
                 const staffCircleMaterial = new THREE.MeshBasicMaterial({ 
                   color: staff.type === 'Doctor' ? 0x9b87f5 : 0x33a1c9, // Purple for doctors, blue for others
-                  side: THREE.DoubleSide 
+                  side: THREE.DoubleSide,
+                  transparent: true,
+                  opacity: 0.8
                 });
                 
                 const staffCircle = new THREE.Mesh(staffCircleGeometry, staffCircleMaterial);
@@ -632,10 +881,26 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
                 staffCircle.rotation.x = -Math.PI / 2;
                 staffGroup.add(staffCircle);
                 
-                // Create simplified staff icon
+                const innerCircleGeometry = new THREE.CircleGeometry(0.24, 32);
+                const innerCircleMaterial = new THREE.MeshBasicMaterial({
+                  color: 0xffffff,
+                  transparent: true,
+                  opacity: 0.5
+                });
+                
+                const innerCircle = new THREE.Mesh(innerCircleGeometry, innerCircleMaterial);
+                innerCircle.name = "staff-indicator-inner-circle";
+                innerCircle.rotation.x = -Math.PI / 2;
+                staffGroup.add(innerCircle);
+                
+                // Create improved staff icon
                 const staffHeadGeometry = new THREE.SphereGeometry(0.1, 16, 16);
                 const staffBodyGeometry = new THREE.BoxGeometry(0.15, 0.15, 0.18);
-                const staffMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+                const staffMaterial = new THREE.MeshBasicMaterial({ 
+                  color: staff.type === 'Doctor' ? 0x9b87f5 : 0x33a1c9,
+                  transparent: true,
+                  opacity: 0.9
+                });
                 
                 const staffHead = new THREE.Mesh(staffHeadGeometry, staffMaterial);
                 staffHead.name = "staff-icon-head";
@@ -647,10 +912,19 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
                 staffBody.position.y = 0.01;
                 staffGroup.add(staffBody);
                 
+                // Make staff indicator float and rotate slightly
+                const animateStaffIcon = () => {
+                  const time = Date.now() * 0.001;
+                  staffGroup.position.y = bed.position.y + 0.7 + verticalOffset + Math.sin(time * 2 + index) * 0.05;
+                  staffGroup.rotation.z = Math.sin(time * 0.5) * 0.1;
+                };
+                
+                (staffGroup as any).animate = animateStaffIcon;
+                
                 // Position the staff indicator near the bed with offsets for "All Floors" view
                 staffGroup.position.set(
                   bed.position.x + 0.6 + (index * 0.7) + horizontalOffset,
-                  bed.position.y + 0.6 + verticalOffset,
+                  bed.position.y + 0.7 + verticalOffset,
                   bed.position.z + 0.8
                 );
                 
@@ -661,21 +935,37 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
         }
       }
       
-      // Add room label
+      // Add modernized room label
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
       
       if (context) {
-        canvas.width = 128;
-        canvas.height = 64;
+        canvas.width = 256;
+        canvas.height = 128;
         
-        context.fillStyle = '#ffffff';
+        // Create gradient background
+        const gradient = context.createLinearGradient(0, 0, 0, canvas.height);
+        gradient.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
+        gradient.addColorStop(1, 'rgba(220, 220, 220, 0.9)');
+        
+        context.fillStyle = gradient;
         context.fillRect(0, 0, canvas.width, canvas.height);
         
-        context.font = '24px Arial';
-        context.fillStyle = '#000000';
+        // Add border
+        context.strokeStyle = '#8E9196';
+        context.lineWidth = 4;
+        context.strokeRect(4, 4, canvas.width - 8, canvas.height - 8);
+        
+        // Text with shadow
+        context.shadowColor = 'rgba(0, 0, 0, 0.2)';
+        context.shadowBlur = 4;
+        context.shadowOffsetX = 2;
+        context.shadowOffsetY = 2;
+        
+        context.font = 'bold 36px Arial';
+        context.fillStyle = '#333333';
         context.textAlign = 'center';
-        context.fillText(bed.room, canvas.width / 2, canvas.height / 2 + 8);
+        context.fillText(bed.room, canvas.width / 2, canvas.height / 2 + 12);
         
         const texture = new THREE.CanvasTexture(canvas);
         const labelMaterial = new THREE.MeshBasicMaterial({
@@ -684,21 +974,29 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
           side: THREE.DoubleSide
         });
         
-        const roomLabelGeometry = new THREE.PlaneGeometry(0.8, 0.4);
+        const roomLabelGeometry = new THREE.PlaneGeometry(1.0, 0.5);
         const label = new THREE.Mesh(roomLabelGeometry, labelMaterial);
         label.name = `room-label-${bed.room}`;
         label.position.set(
           bed.position.x + horizontalOffset,
-          bed.position.y + 1.5 + verticalOffset,
+          bed.position.y + 1.7 + verticalOffset,
           bed.position.z - 0.3
         );
         label.rotation.x = -Math.PI / 4;
+        
+        // Make label float slightly
+        const animateLabel = () => {
+          const time = Date.now() * 0.001;
+          label.position.y = bed.position.y + 1.7 + verticalOffset + Math.sin(time * 1.5) * 0.03;
+        };
+        
+        (label as any).animate = animateLabel;
         
         scene.add(label);
       }
     });
     
-    // Handle window resize
+    // Handle window resize with improved performance
     const handleResize = () => {
       if (!mountRef.current) return;
       
@@ -710,11 +1008,12 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       camera.updateProjectionMatrix();
       
       renderer.setSize(width, height);
+      renderer.setPixelRatio(window.devicePixelRatio);
     };
     
     window.addEventListener('resize', handleResize);
     
-    // Handle mouse movement for interactive elements
+    // Handle mouse movement for interactive elements with improved performance
     const onMouseMove = (event: MouseEvent) => {
       if (!mountRef.current) return;
       
@@ -786,13 +1085,51 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       }
     };
     
+    // Add touch support for mobile devices
+    const onTouchStart = (event: TouchEvent) => {
+      if (!mountRef.current || !event.touches[0]) return;
+      
+      const touch = event.touches[0];
+      const rect = mountRef.current.getBoundingClientRect();
+      mouse.x = ((touch.clientX - rect.left) / mountRef.current.clientWidth) * 2 - 1;
+      mouse.y = -((touch.clientY - rect.top) / mountRef.current.clientHeight) * 2 + 1;
+      
+      raycaster.setFromCamera(mouse, camera);
+      
+      const intersects = raycaster.intersectObjects(Object.values(interactiveObjects), true);
+      
+      if (intersects.length > 0) {
+        const object = intersects[0].object;
+        
+        // Find the key (id) for this object by traversing up to parent
+        for (const [key, value] of Object.entries(interactiveObjects)) {
+          let parent = object;
+          // Traverse up to find if this object or any of its parents match the interactive object
+          while (parent) {
+            if (parent === value) {
+              console.log(`Touched on: ${key}`);
+              
+              if (key.startsWith('bed-')) {
+                onBedSelect?.(key);
+              } else {
+                onPatientSelect?.(key);
+              }
+              break;
+            }
+            parent = parent.parent;
+          }
+        }
+      }
+    };
+    
     mountRef.current.addEventListener('mousemove', onMouseMove);
     mountRef.current.addEventListener('click', onClick);
+    mountRef.current.addEventListener('touchstart', onTouchStart);
     
     // Animation variables
     const clock = new THREE.Clock();
     
-    // Animation loop
+    // Animation loop with improved performance
     const animate = () => {
       const animationId = requestAnimationFrame(animate);
       const delta = clock.getDelta();
@@ -800,16 +1137,36 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       // Update controls
       controls.update();
       
-      // Update any pulse effects for critical patients
+      // Update any pulse effects for critical patients with smoother animation
       scene.traverse((object) => {
         if (object instanceof THREE.PointLight && (object as any).pulseParams) {
           const params = (object as any).pulseParams;
           params.phase += delta * params.speed;
           object.intensity = 0.5 + Math.sin(params.phase) * 0.5; // Pulsate between 0 and 1
         }
+        
+        // Call custom animation functions if defined
+        if ((object as any).animate && typeof (object as any).animate === 'function') {
+          (object as any).animate();
+        }
       });
       
-      // Render scene
+      // Update environment map for reflective materials (only occasionally for performance)
+      if (Math.random() < 0.01) { // Update env map rarely
+        cubeCamera.update(renderer, scene);
+        
+        // Update reflective materials with the environment map
+        scene.traverse((object) => {
+          if (object instanceof THREE.Mesh && object.material instanceof THREE.MeshStandardMaterial) {
+            if (object.material.metalness > 0.3) {
+              object.material.envMap = cubeRenderTarget.texture;
+              object.material.needsUpdate = true;
+            }
+          }
+        });
+      }
+      
+      // Render scene with optimized settings
       renderer.render(scene, camera);
     };
     
@@ -821,6 +1178,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       if (mountRef.current) {
         mountRef.current.removeEventListener('mousemove', onMouseMove);
         mountRef.current.removeEventListener('click', onClick);
+        mountRef.current.removeEventListener('touchstart', onTouchStart);
         mountRef.current.removeChild(renderer.domElement);
       }
       
@@ -839,12 +1197,16 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
         }
       });
       
+      // Cancel animations
+      cancelAnimationFrame(animate as unknown as number);
+      
       // Clear scene
       while(scene.children.length > 0) { 
         scene.remove(scene.children[0]); 
       }
       
       renderer.dispose();
+      renderer.forceContextLoss();
     };
   }, [hospital, selectedFloor, onBedSelect, onPatientSelect, hoveredObject]);
   
