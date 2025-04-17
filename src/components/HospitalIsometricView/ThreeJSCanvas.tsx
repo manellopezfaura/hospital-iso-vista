@@ -219,7 +219,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     return patientGroup;
   };
   
-  const { floors, visibleBeds, visiblePatients } = useMemo(() => {
+  const { visibleFloors, visibleBeds, visiblePatients } = useMemo(() => {
     const allFloors = hospital.floors;
     
     if (selectedFloor) {
@@ -235,12 +235,16 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
           patient => bedPatientIds.includes(patient.id)
         );
         
-        return { floors: allFloors, visibleBeds: beds, visiblePatients: patients };
+        return { 
+          visibleFloors: [currentFloor], 
+          visibleBeds: beds, 
+          visiblePatients: patients 
+        };
       }
     }
     
     return { 
-      floors: allFloors, 
+      visibleFloors: allFloors, 
       visibleBeds: hospital.beds, 
       visiblePatients: hospital.patients 
     };
@@ -254,6 +258,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     console.log("Selected patient ID:", selectedPatientId);
     console.log("Dark mode enabled:", isDarkMode);
     console.log("Visible beds:", visibleBeds.length);
+    console.log("Visible floors:", visibleFloors.length);
     
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(isDarkMode ? 0x1A1F2C : 0xF6F6F7);
@@ -264,8 +269,15 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     const camera = new THREE.OrthographicCamera(
       -10 * aspect, 10 * aspect, 10, -10, 0.1, 1000
     );
-    camera.position.set(20, 20, 20);
-    camera.lookAt(0, 0, 0);
+    
+    if (selectedFloor && visibleFloors.length === 1) {
+      const floorLevel = visibleFloors[0].level;
+      camera.position.set(15, floorLevel * 4 + 10, 15);
+      camera.lookAt(0, floorLevel * 4, 0);
+    } else {
+      camera.position.set(20, 20, 20);
+      camera.lookAt(0, 0, 0);
+    }
     
     const renderer = new THREE.WebGLRenderer({ 
       antialias: true,
@@ -342,6 +354,15 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       roughness: 0.7,
       metalness: 0.3,
       envMapIntensity: 0.8
+    });
+    
+    const nonVisibleFloorMaterial = new THREE.MeshStandardMaterial({ 
+      color: isDarkMode ? 0x403E43 : 0xE2E8F0,
+      roughness: 0.7,
+      metalness: 0.3,
+      transparent: true,
+      opacity: 0.15,
+      envMapIntensity: 0.4
     });
     
     const wallMaterial = new THREE.MeshStandardMaterial({ 
@@ -674,10 +695,28 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     
     const floorGeometry = new THREE.BoxGeometry(25, 0.2, 25);
     
-    floors.forEach(floor => {
-      const floorMesh = new THREE.Mesh(floorGeometry, floorMaterial);
+    hospital.floors.forEach(floor => {
+      const isVisible = visibleFloors.some(f => f.id === floor.id);
+      const material = isVisible ? floorMaterial : nonVisibleFloorMaterial;
+      
+      const floorMesh = new THREE.Mesh(floorGeometry, material);
       floorMesh.position.y = floor.level * 4;
+      floorMesh.receiveShadow = isVisible;
       scene.add(floorMesh);
+      
+      if (!isVisible && selectedFloor) {
+        const wallOutlineGeometry = new THREE.EdgesGeometry(
+          new THREE.BoxGeometry(24, 2.5, 24)
+        );
+        const wallOutlineMaterial = new THREE.LineBasicMaterial({
+          color: isDarkMode ? 0x6E59A5 : 0xA0AEC0,
+          transparent: true,
+          opacity: 0.1
+        });
+        const wallOutlineMesh = new THREE.LineSegments(wallOutlineGeometry, wallOutlineMaterial);
+        wallOutlineMesh.position.y = floor.level * 4 + 1.5;
+        scene.add(wallOutlineMesh);
+      }
     });
     
     visibleBeds.forEach(bed => {
@@ -826,7 +865,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
         scene.remove(object);
       });
     };
-  }, [mountRef, hospital, selectedFloor, selectedPatientId, isDarkMode, visibleBeds, visiblePatients, onBedSelect, onPatientSelect]);
+  }, [mountRef, hospital, selectedFloor, selectedPatientId, isDarkMode, visibleBeds, visiblePatients, visibleFloors, onBedSelect, onPatientSelect]);
   
   return (
     <div ref={mountRef} style={{ width: '100%', height: '100%' }} />

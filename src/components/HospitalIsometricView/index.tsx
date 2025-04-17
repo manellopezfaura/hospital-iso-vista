@@ -23,12 +23,27 @@ const HospitalIsometricView: React.FC<HospitalIsometricViewProps> = ({ isDarkMod
 
   const handleFloorChange = (floorId: string | null) => {
     setSelectedFloor(floorId);
-    // No necesitamos resetear la selección de cama/paciente ya que ahora
-    // el usuario puede cambiar directamente de una selección a otra
+    
+    // Reset bed and patient selection when changing floors
+    setSelectedBedId(null);
+    setSelectedPatientId(null);
+    
+    // Show toast notification
+    if (floorId) {
+      const floor = hospital.floors.find(f => f.id === floorId);
+      toast({
+        title: "Piso seleccionado",
+        description: `Viendo ${floor?.name || 'piso desconocido'}`,
+      });
+    } else {
+      toast({
+        title: "Vista completa",
+        description: "Mostrando todos los pisos del hospital",
+      });
+    }
   };
 
   const handleBedSelect = (bedId: string) => {
-    // Simply update the selectedBedId, no need to check if one is already selected
     setSelectedBedId(bedId);
     
     const bed = hospital.beds.find(b => b.id === bedId);
@@ -45,7 +60,6 @@ const HospitalIsometricView: React.FC<HospitalIsometricViewProps> = ({ isDarkMod
   };
 
   const handlePatientSelect = (patientId: string) => {
-    // Simply update the selectedPatientId, no need to check if one is already selected
     setSelectedPatientId(patientId);
     
     const patient = hospital.patients.find(p => p.id === patientId);
