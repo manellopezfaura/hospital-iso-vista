@@ -762,4 +762,216 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
             // Add enhanced pulsing light effect for critical patients
             const pulsingLight = new THREE.PointLight(0xff0000, 1, 3);
             pulsingLight.name = "critical-light";
-            pulsingLight.
+            pulsingLight.position.set(
+              bed.position.x - 0.8 + horizontalOffset,
+              bed.position.y + 1.0 + verticalOffset,
+              bed.position.z
+            );
+            
+            // Animate pulsing light
+            const animatePulsingLight = () => {
+              const time = Date.now() * 0.001;
+              pulsingLight.intensity = 0.7 + Math.sin(time * 5) * 0.3;
+            };
+            
+            (pulsingLight as any).animate = animatePulsingLight;
+            scene.add(pulsingLight);
+          }
+        }
+      }
+    });
+    
+    // Event handling for interactivity
+    const handleClick = (event: MouseEvent) => {
+      event.preventDefault();
+      
+      const rect = mountRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      
+      // Calculate mouse position in normalized device coordinates (-1 to +1)
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      
+      // Update the picking ray
+      raycaster.setFromCamera(mouse, camera);
+      
+      // Find intersected objects
+      const intersects = raycaster.intersectObjects(Object.values(interactiveObjects));
+      
+      if (intersects.length > 0) {
+        // Find the first intersected object that's in our interactive objects map
+        for (const intersect of intersects) {
+          let object: THREE.Object3D | null = intersect.object;
+          
+          // Traverse up the parent chain to find the interactive parent
+          while (object && object.parent) {
+            // Check if this object or any parent is an interactive object
+            const foundKey = Object.entries(interactiveObjects).find(([_, obj]) => obj === object);
+            
+            if (foundKey) {
+              const [key] = foundKey;
+              console.log("Selected object:", key);
+              
+              // Determine if it's a bed or patient
+              if (key.startsWith('bed-')) {
+                onBedSelect && onBedSelect(key);
+              } else if (key.startsWith('patient-')) {
+                onPatientSelect && onPatientSelect(key);
+              }
+              return;
+            }
+            
+            object = object.parent;
+          }
+        }
+      }
+    };
+    
+    // Handle mouse move for hover effects
+    const handleMouseMove = (event: MouseEvent) => {
+      event.preventDefault();
+      
+      const rect = mountRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      
+      // Calculate mouse position in normalized device coordinates (-1 to +1)
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      
+      // Update the picking ray
+      raycaster.setFromCamera(mouse, camera);
+      
+      // Find intersected objects
+      const intersects = raycaster.intersectObjects(Object.values(interactiveObjects));
+      
+      // Reset previously hovered object
+      if (hoveredObject && interactiveObjects[hoveredObject]) {
+        const object = interactiveObjects[hoveredObject];
+        object.traverse(child => {
+          if (child instanceof THREE.Mesh) {
+            if (child.material.userData && child.material.userData.originalEmissiveIntensity !== undefined) {
+              child.material.emissiveIntensity = child.material.userData.originalEmissiveIntensity;
+            }
+          }
+        });
+      }
+      
+      // Set new hovered object
+      let newHoveredObject: string | null = null;
+      
+      if (intersects.length > 0) {
+        for (const intersect of intersects) {
+          let object: THREE.Object3D | null = intersect.object;
+          
+          while (object && object.parent) {
+            const foundKey = Object.entries(interactiveObjects).find(([_, obj]) => obj === object);
+            
+            if (foundKey) {
+              const [key] = foundKey;
+              newHoveredObject = key;
+              
+              // Apply hover effect
+              const interactiveObject = interactiveObjects[key];
+              interactiveObject.traverse(child => {
+                if (child instanceof THREE.Mesh && child.material.emissive) {
+                  // Store original emissive intensity for restoration when unhovered
+                  if (!child.material.userData) {
+                    child.material.userData = {};
+                  }
+                  
+                  if (child.material.userData.originalEmissiveIntensity === undefined) {
+                    child.material.userData.originalEmissiveIntensity = child.material.emissiveIntensity || 0;
+                  }
+                  
+                  // Increase emissive intensity for hover effect
+                  child.material.emissiveIntensity = (child.material.userData.originalEmissiveIntensity || 0) + 0.5;
+                }
+              });
+              
+              break;
+            }
+            
+            object = object.parent;
+          }
+          
+          if (newHoveredObject) break;
+        }
+      }
+      
+      setHoveredObject(newHoveredObject);
+    };
+    
+    // Add event listeners for interactivity
+    renderer.domElement.addEventListener('click', handleClick);
+    renderer.domElement.addEventListener('mousemove', handleMouseMove);
+    
+    // Handle window resize
+    const handleResize = () => {
+      if (!mountRef.current) return;
+      
+      const width = mountRef.current.clientWidth;
+      const height = mountRef.current.clientHeight;
+      
+      camera.left = -10 * (width / height);
+      camera.right = 10 * (width / height);
+      camera.updateProjectionMatrix();
+      
+      renderer.setSize(width, height);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    
+    // Animation loop for smooth rendering
+    let animationFrameId: number;
+    
+    const animate = () => {
+      animationFrameId = requestAnimationFrame(animate);
+      
+      // Update animation effects
+      scene.traverse(object => {
+        if ((object as any).animate && typeof (object as any).animate === 'function') {
+          (object as any).animate();
+        }
+      });
+      
+      // Update controls
+      controls.update();
+      
+      // Render the scene
+      renderer.render(scene, camera);
+    };
+    
+    animate();
+    
+    // Clean up resources on unmount
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      renderer.domElement.removeEventListener('click', handleClick);
+      renderer.domElement.removeEventListener('mousemove', handleMouseMove);
+      cancelAnimationFrame(animationFrameId);
+      
+      if (mountRef.current) {
+        mountRef.current.removeChild(renderer.domElement);
+      }
+      
+      // Dispose of all geometries, materials, and textures
+      scene.traverse(object => {
+        if (object instanceof THREE.Mesh) {
+          if (object.geometry) object.geometry.dispose();
+          
+          if (Array.isArray(object.material)) {
+            object.material.forEach(material => material.dispose());
+          } else if (object.material) {
+            object.material.dispose();
+          }
+        }
+      });
+      
+      renderer.dispose();
+    };
+  }, [hospital, selectedFloor, onBedSelect, onPatientSelect, hoveredObject]);
+  
+  return <div ref={mountRef} className="w-full h-full" />;
+};
+
+export default ThreeJSCanvas;
