@@ -45,7 +45,22 @@ export const useSceneSetup = ({
       controls
     };
 
+    // Ensure the view is updated when the window resizes
+    const handleResize = () => {
+      if (!containerRef.current) return;
+      
+      const width = containerRef.current.clientWidth;
+      const height = containerRef.current.clientHeight;
+      
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height);
+    };
+    
+    window.addEventListener('resize', handleResize);
+
     return () => {
+      window.removeEventListener('resize', handleResize);
       if (renderer) {
         renderer.dispose();
       }

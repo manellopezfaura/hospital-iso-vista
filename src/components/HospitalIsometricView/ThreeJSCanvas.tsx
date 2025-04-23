@@ -7,7 +7,6 @@ import { createPatient } from './models/Patient';
 import { createMaterials } from './utils/materials';
 import { useSceneSetup } from './hooks/useSceneSetup';
 import { useHospitalObjects } from './hooks/useHospitalObjects';
-import { useMouseInteraction } from './hooks/useMouseInteraction';
 
 interface ThreeJSCanvasProps {
   hospital: Hospital;
@@ -43,13 +42,76 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     selectedPatientId,
     isDarkMode
   });
-  
-  const { handleMouseMove, handleClick } = useMouseInteraction({
-    camera: sceneSetup?.camera || null,
-    interactiveObjects,
-    onBedSelect,
-    onPatientSelect
-  });
+
+  // Setup mouse interaction handlers
+  useEffect(() => {
+    if (!mountRef.current || !sceneSetup?.camera) return;
+    
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    let hoveredObject: THREE.Object3D | null = null;
+    
+    const handleMouseMove = (event: MouseEvent) => {
+      const container = mountRef.current;
+      if (!container || !sceneSetup?.camera) return;
+      
+      const rect = container.getBoundingClientRect();
+      mouse.x = ((event.clientX - rect.left) / container.clientWidth) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / container.clientHeight) * 2 + 1;
+      
+      raycaster.setFromCamera(mouse, sceneSetup.camera);
+      
+      const intersects = raycaster.intersectObjects(Object.values(interactiveObjects));
+      
+      if (intersects.length > 0) {
+        const object = intersects[0].object;
+        if (object !== hoveredObject) {
+          document.body.style.cursor = 'pointer';
+          hoveredObject = object;
+        }
+      } else if (hoveredObject) {
+        document.body.style.cursor = 'default';
+        hoveredObject = null;
+      }
+    };
+    
+    const handleClick = (event: MouseEvent) => {
+      const container = mountRef.current;
+      if (!container || !sceneSetup?.camera) return;
+      
+      const rect = container.getBoundingClientRect();
+      mouse.x = ((event.clientX - rect.left) / container.clientWidth) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / container.clientHeight) * 2 + 1;
+      
+      raycaster.setFromCamera(mouse, sceneSetup.camera);
+      
+      const intersects = raycaster.intersectObjects(Object.values(interactiveObjects));
+      
+      if (intersects.length > 0) {
+        const object = intersects[0].object;
+        const objectId = Object.entries(interactiveObjects).find(([_, obj]) => obj === object)?.[0];
+        
+        if (objectId) {
+          if (objectId.startsWith('bed-') && onBedSelect) {
+            onBedSelect(objectId);
+          } else if (objectId.startsWith('patient-') && onPatientSelect) {
+            onPatientSelect(objectId);
+          }
+        }
+      }
+    };
+    
+    const container = mountRef.current;
+    
+    container.addEventListener('mousemove', handleMouseMove);
+    container.addEventListener('click', handleClick);
+    
+    return () => {
+      container.removeEventListener('mousemove', handleMouseMove);
+      container.removeEventListener('click', handleClick);
+      document.body.style.cursor = 'default';
+    };
+  }, [sceneSetup, interactiveObjects, onBedSelect, onPatientSelect]);
 
   useEffect(() => {
     if (!mountRef.current || !sceneSetup) return;
@@ -57,6 +119,13 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     const { scene, camera, renderer, controls } = sceneSetup;
     const materials = createMaterials(isDarkMode);
     const newInteractiveObjects: Record<string, THREE.Object3D> = {};
+
+    // Clear previous scene objects (except lights)
+    scene.children.forEach(child => {
+      if (child instanceof THREE.Mesh || child instanceof THREE.Group) {
+        scene.remove(child);
+      }
+    });
 
     // Create floors
     const floorGeometry = new THREE.BoxGeometry(25, 0.2, 25);
@@ -104,34 +173,24 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     
     const container = mountRef.current;
     
-    const mouseMoveHandler = (e: MouseEvent) => handleMouseMove(e, container);
-    const clickHandler = (e: MouseEvent) => handleClick(e, container);
-    
-    container.addEventListener('mousemove', mouseMoveHandler);
-    container.addEventListener('click', clickHandler);
-    
     const animate = () => {
       requestAnimationFrame(animate);
       controls.update();
       renderer.render(scene, camera);
     };
     
-    animate();
+    // Start animation loop
+    const animationId = requestAnimationFrame(animate);
     
-    container.appendChild(renderer.domElement);
+    // Make sure the renderer is attached to the DOM
+    if (!container.contains(renderer.domElement)) {
+      container.appendChild(renderer.domElement);
+    }
     
     return () => {
-      if (container) {
-        container.removeEventListener('mousemove', mouseMoveHandler);
-        container.removeEventListener('click', clickHandler);
-        container.removeChild(renderer.domElement);
-      }
-      
-      Object.values(newInteractiveObjects).forEach(object => {
-        scene.remove(object);
-      });
+      cancelAnimationFrame(animationId);
     };
-  }, [hospital, selectedFloor, selectedPatientId, isDarkMode, visibleBeds, visiblePatients, visibleFloors, sceneSetup, handleMouseMove, handleClick]);
+  }, [hospital, selectedFloor, selectedPatientId, isDarkMode, visibleBeds, visiblePatients, visibleFloors, sceneSetup]);
   
   return (
     <div ref={mountRef} style={{ width: '100%', height: '100%' }} />

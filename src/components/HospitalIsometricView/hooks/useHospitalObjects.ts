@@ -2,9 +2,6 @@
 import { useMemo } from 'react';
 import * as THREE from 'three';
 import { Hospital } from '@/types/hospital';
-import { createHospitalBed } from '../models/HospitalBed';
-import { createPatient } from '../models/Patient';
-import { createMaterials } from '../utils/materials';
 
 interface UseHospitalObjectsProps {
   hospital: Hospital;
@@ -45,6 +42,8 @@ export const useHospitalObjects = ({
       }
     }
     
+    // When no floor is selected, show all floors with their beds and patients
+    // This ensures floors are visible on initial load
     return { 
       visibleFloors: allFloors, 
       visibleBeds: hospital.beds, 
