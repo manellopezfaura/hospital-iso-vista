@@ -155,7 +155,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
       }
     });
     
-    const { handleMouseMove, handleClick } = useMouseInteraction({
+    const mouseInteraction = useMouseInteraction({
       interactiveObjects,
       onBedSelect,
       onPatientSelect,
@@ -164,8 +164,8 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     
     const container = mountRef.current;
     
-    const onMouseMove = (event: MouseEvent) => handleMouseMove(event, container);
-    const onClick = (event: MouseEvent) => handleClick(event, container);
+    const onMouseMove = (event: MouseEvent) => mouseInteraction.handleMouseMove(event, container);
+    const onClick = (event: MouseEvent) => mouseInteraction.handleClick(event, container);
     
     container.addEventListener('mousemove', onMouseMove);
     container.addEventListener('click', onClick);

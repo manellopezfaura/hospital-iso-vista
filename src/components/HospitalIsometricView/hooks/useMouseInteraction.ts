@@ -1,5 +1,5 @@
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import * as THREE from 'three';
 
 interface MouseInteractionProps {
@@ -16,11 +16,13 @@ export const useMouseInteraction = ({
   camera 
 }: MouseInteractionProps) => {
   const [hoveredObject, setHoveredObject] = useState<string | null>(null);
-  const raycaster = new THREE.Raycaster();
-  const mouse = new THREE.Vector2();
+  const raycasterRef = useRef(new THREE.Raycaster());
+  const mouseRef = useRef(new THREE.Vector2());
   
   const handleMouseMove = useCallback((event: MouseEvent, container: HTMLDivElement) => {
     const rect = container.getBoundingClientRect();
+    const raycaster = raycasterRef.current;
+    const mouse = mouseRef.current;
     
     mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
@@ -58,7 +60,7 @@ export const useMouseInteraction = ({
       document.body.style.cursor = 'auto';
       resetHighlights();
     }
-  }, [camera, hoveredObject, interactiveObjects, raycaster]);
+  }, [camera, hoveredObject, interactiveObjects]);
   
   const resetHighlights = useCallback(() => {
     if (hoveredObject) {
@@ -78,6 +80,8 @@ export const useMouseInteraction = ({
   
   const handleClick = useCallback((event: MouseEvent, container: HTMLDivElement) => {
     const rect = container.getBoundingClientRect();
+    const raycaster = raycasterRef.current;
+    const mouse = mouseRef.current;
     
     mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
@@ -101,7 +105,7 @@ export const useMouseInteraction = ({
         }
       }
     }
-  }, [camera, interactiveObjects, onBedSelect, onPatientSelect, raycaster]);
+  }, [camera, interactiveObjects, onBedSelect, onPatientSelect]);
   
   return {
     handleMouseMove,
