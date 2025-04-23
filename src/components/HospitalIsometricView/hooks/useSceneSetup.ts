@@ -52,8 +52,17 @@ export const useSceneSetup = ({
       const width = containerRef.current.clientWidth;
       const height = containerRef.current.clientHeight;
       
-      camera.aspect = width / height;
+      // For OrthographicCamera, we need to update the projection parameters
+      // instead of using the aspect property
+      const aspectRatio = width / height;
+      const frustumSize = 10; // Same value as in setupScene
+      
+      camera.left = -frustumSize * aspectRatio;
+      camera.right = frustumSize * aspectRatio;
+      camera.top = frustumSize;
+      camera.bottom = -frustumSize;
       camera.updateProjectionMatrix();
+      
       renderer.setSize(width, height);
     };
     
