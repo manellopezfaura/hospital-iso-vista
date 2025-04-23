@@ -1,10 +1,12 @@
-import React, { useRef, useEffect, useMemo } from 'react';
+
+import React, { useRef, useEffect } from 'react';
 import * as THREE from 'three';
-import { Hospital, Floor } from '@/types/hospital';
+import { Hospital } from '@/types/hospital';
 import { createHospitalBed } from './models/HospitalBed';
 import { createPatient } from './models/Patient';
-import { setupScene, setupLights } from './utils/sceneSetup';
 import { createMaterials } from './utils/materials';
+import { useSceneSetup } from './hooks/useSceneSetup';
+import { useHospitalObjects } from './hooks/useHospitalObjects';
 import { useMouseInteraction } from './hooks/useMouseInteraction';
 
 interface ThreeJSCanvasProps {
@@ -25,227 +27,82 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
   isDarkMode = true
 }) => {
   const mountRef = useRef<HTMLDivElement>(null);
+  const floorLevel = selectedFloor ? hospital.floors.find(f => f.id === selectedFloor)?.level : null;
   
-  const { visibleFloors, visibleBeds, visiblePatients } = useMemo(() => {
-    const allFloors = hospital.floors;
-    
-    if (selectedFloor) {
-      const currentFloor = allFloors.find(f => f.id === selectedFloor);
-      
-      if (currentFloor) {
-        const beds = hospital.beds.filter(bed => bed.floor === currentFloor.type);
-        const bedPatientIds = beds
-          .filter(bed => bed.patientId)
-          .map(bed => bed.patientId);
-        
-        const patients = hospital.patients.filter(
-          patient => bedPatientIds.includes(patient.id)
-        );
-        
-        return { 
-          visibleFloors: [currentFloor], 
-          visibleBeds: beds, 
-          visiblePatients: patients 
-        };
-      }
-    }
-    
-    return { 
-      visibleFloors: allFloors, 
-      visibleBeds: hospital.beds, 
-      visiblePatients: hospital.patients 
-    };
-  }, [hospital, selectedFloor]);
+  const sceneSetup = useSceneSetup({
+    containerRef: mountRef,
+    isDarkMode,
+    selectedFloor,
+    floorLevel
+  });
   
+  const { visibleFloors, visibleBeds, visiblePatients } = useHospitalObjects({
+    hospital,
+    selectedFloor,
+    selectedPatientId,
+    isDarkMode
+  });
+
   useEffect(() => {
-    if (!mountRef.current) return;
+    if (!mountRef.current || !sceneSetup) return;
     
-    console.log("Initializing ThreeJSCanvas with hospital data:", hospital);
-    console.log("Selected floor:", selectedFloor);
-    console.log("Selected patient ID:", selectedPatientId);
-    console.log("Dark mode enabled:", isDarkMode);
-    console.log("Visible beds:", visibleBeds.length);
-    console.log("Visible floors:", visibleFloors.length);
-    
-    const floorLevel = selectedFloor ? visibleFloors[0]?.level : null;
-    const { scene, camera, renderer, controls } = setupScene(
-      mountRef.current,
-      isDarkMode,
-      selectedFloor,
-      floorLevel
-    );
-    
-    setupLights(scene, isDarkMode);
-    
+    const { scene, camera, renderer, controls } = sceneSetup;
     const materials = createMaterials(isDarkMode);
     const interactiveObjects: { [key: string]: THREE.Object3D } = {};
-    
+
     // Create floors
     const floorGeometry = new THREE.BoxGeometry(25, 0.2, 25);
-    
-    hospital.floors.forEach((floor: Floor) => {
-      const isVisible = visibleFloors.some(f => f.id === floor.id);
-      const material = isVisible ? materials.floor : materials.nonVisibleFloor;
-      
+    visibleFloors.forEach(floor => {
+      const material = materials.floor;
       const floorMesh = new THREE.Mesh(floorGeometry, material);
       floorMesh.position.y = floor.level * 4 - 0.1;
-      floorMesh.receiveShadow = isVisible;
+      floorMesh.receiveShadow = true;
       scene.add(floorMesh);
-      
-      if (!isVisible && selectedFloor) {
-        const wallOutlineGeometry = new THREE.EdgesGeometry(
-          new THREE.BoxGeometry(24, 2.5, 24)
-        );
-        const wallOutlineMaterial = new THREE.LineBasicMaterial({
-          color: isDarkMode ? 0x6E59A5 : 0xA0AEC0,
-          transparent: true,
-          opacity: 0.1
-        });
-        const wallOutlineMesh = new THREE.LineSegments(wallOutlineGeometry, wallOutlineMaterial);
-        wallOutlineMesh.position.y = floor.level * 4 + 1.5;
-        scene.add(wallOutlineMesh);
-      }
     });
-    
-    // Create beds
+
+    // Create beds and patients
     visibleBeds.forEach(bed => {
-      const bedPosition = new THREE.Vector3(
-        bed.position.x,
-        (bed.position.y !== undefined ? bed.position.y : 0) + 0.1,
-        bed.position.z
+      const bedMesh = createHospitalBed(
+        new THREE.Vector3(bed.position.x, bed.position.y ?? 0, bed.position.z),
+        bed.id,
+        isDarkMode
       );
-      
-      const bedMesh = createHospitalBed(bedPosition, bed.id, isDarkMode);
-      
-      // Add status indicators
-      if (bed.status === 'cleaning' || bed.status === 'available') {
-        const indicatorGeometry = new THREE.SphereGeometry(0.2, 8, 8);
-        const indicatorMaterial = new THREE.MeshStandardMaterial({
-          color: bed.status === 'cleaning' ? 0xfbbd23 : 0x4ade80,
-          emissive: bed.status === 'cleaning' ? 0xfbbd23 : 0x4ade80,
-          emissiveIntensity: 0.5
-        });
-        const indicator = new THREE.Mesh(indicatorGeometry, indicatorMaterial);
-        indicator.position.set(0, 0.8, 0);
-        bedMesh.add(indicator);
-      }
-      
       scene.add(bedMesh);
       interactiveObjects[bed.id] = bedMesh;
     });
-    
-    // Create patients
+
     visiblePatients.forEach(patient => {
       if (patient.bedId) {
-        const associatedBed = visibleBeds.find(b => b.id === patient.bedId);
-        if (associatedBed) {
-          const patientPosition = new THREE.Vector3(
-            associatedBed.position.x,
-            (associatedBed.position.y !== undefined ? associatedBed.position.y : 0) + 0.45,
-            associatedBed.position.z
+        const bed = visibleBeds.find(b => b.id === patient.bedId);
+        if (bed) {
+          const patientMesh = createPatient(
+            new THREE.Vector3(
+              bed.position.x,
+              (bed.position.y ?? 0) + 0.45,
+              bed.position.z
+            ),
+            patient.id,
+            patient.status,
+            patient.id === selectedPatientId,
+            isDarkMode
           );
-          
-          const isSelected = patient.id === selectedPatientId;
-          const patientMesh = createPatient(patientPosition, patient.id, patient.status, isSelected, isDarkMode);
-          
           scene.add(patientMesh);
           interactiveObjects[patient.id] = patientMesh;
         }
       }
     });
-    
-    const mouseInteraction = {
-      handleMouseMove: (event: MouseEvent, container: HTMLDivElement) => {
-        const rect = container.getBoundingClientRect();
-        const raycaster = new THREE.Raycaster();
-        const mouse = new THREE.Vector2();
-        
-        mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-        mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-        
-        raycaster.setFromCamera(mouse, camera);
-        
-        const intersects = raycaster.intersectObjects(Object.values(interactiveObjects), true);
-        
-        if (intersects.length > 0) {
-          let object = intersects[0].object;
-          
-          while (object && !object.userData.id) {
-            object = object.parent as THREE.Object3D;
-          }
-          
-          if (object && object.userData.id) {
-            document.body.style.cursor = 'pointer';
-            
-            // Handle hover effects directly
-            if (object.userData.type === 'bed') {
-              const bed = object as THREE.Group;
-              bed.scale.set(1.05, 1.05, 1.05);
-            } else if (object.userData.type === 'patient') {
-              const patient = object as THREE.Group;
-              patient.position.y += 0.1;
-            }
-          } else {
-            document.body.style.cursor = 'auto';
-            // Reset all objects to default state
-            Object.values(interactiveObjects).forEach(obj => {
-              if (obj.userData.type === 'bed') {
-                obj.scale.set(1, 1, 1);
-              } else if (obj.userData.type === 'patient') {
-                obj.position.y -= 0.1;
-              }
-            });
-          }
-        } else {
-          document.body.style.cursor = 'auto';
-          // Reset all objects to default state
-          Object.values(interactiveObjects).forEach(obj => {
-            if (obj.userData.type === 'bed') {
-              obj.scale.set(1, 1, 1);
-            } else if (obj.userData.type === 'patient') {
-              obj.position.y -= 0.1;
-            }
-          });
-        }
-      },
-      
-      handleClick: (event: MouseEvent, container: HTMLDivElement) => {
-        const rect = container.getBoundingClientRect();
-        const raycaster = new THREE.Raycaster();
-        const mouse = new THREE.Vector2();
-        
-        mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-        mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-        
-        raycaster.setFromCamera(mouse, camera);
-        
-        const intersects = raycaster.intersectObjects(Object.values(interactiveObjects), true);
-        
-        if (intersects.length > 0) {
-          let object = intersects[0].object;
-          
-          while (object && !object.userData.id) {
-            object = object.parent as THREE.Object3D;
-          }
-          
-          if (object && object.userData.id) {
-            if (object.userData.type === 'bed' && onBedSelect) {
-              onBedSelect(object.userData.id);
-            } else if (object.userData.type === 'patient' && onPatientSelect) {
-              onPatientSelect(object.userData.id);
-            }
-          }
-        }
-      }
-    };
-    
+
+    const { handleMouseMove, handleClick } = useMouseInteraction({
+      camera,
+      interactiveObjects,
+      onBedSelect,
+      onPatientSelect
+    });
+
     const container = mountRef.current;
     
-    const onMouseMove = (event: MouseEvent) => mouseInteraction.handleMouseMove(event, container);
-    const onClick = (event: MouseEvent) => mouseInteraction.handleClick(event, container);
-    
-    container.addEventListener('mousemove', onMouseMove);
-    container.addEventListener('click', onClick);
+    container.addEventListener('mousemove', e => handleMouseMove(e, container));
+    container.addEventListener('click', e => handleClick(e, container));
     
     const animate = () => {
       requestAnimationFrame(animate);
@@ -259,18 +116,16 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     
     return () => {
       if (container) {
-        container.removeEventListener('mousemove', onMouseMove);
-        container.removeEventListener('click', onClick);
+        container.removeEventListener('mousemove', e => handleMouseMove(e, container));
+        container.removeEventListener('click', e => handleClick(e, container));
         container.removeChild(renderer.domElement);
       }
-      
-      renderer.dispose();
       
       Object.values(interactiveObjects).forEach(object => {
         scene.remove(object);
       });
     };
-  }, [hospital, selectedFloor, selectedPatientId, isDarkMode, visibleBeds, visiblePatients, visibleFloors, onBedSelect, onPatientSelect]);
+  }, [hospital, selectedFloor, selectedPatientId, isDarkMode, visibleBeds, visiblePatients, visibleFloors, sceneSetup]);
   
   return (
     <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
