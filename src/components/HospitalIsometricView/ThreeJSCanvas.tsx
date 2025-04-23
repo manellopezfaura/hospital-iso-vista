@@ -1,5 +1,5 @@
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
 import { Hospital } from '@/types/hospital';
 import { createHospitalBed } from './models/HospitalBed';
@@ -28,6 +28,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
 }) => {
   const mountRef = useRef<HTMLDivElement>(null);
   const floorLevel = selectedFloor ? hospital.floors.find(f => f.id === selectedFloor)?.level : null;
+  const [interactiveObjects, setInteractiveObjects] = useState<Record<string, THREE.Object3D>>({});
   
   const sceneSetup = useSceneSetup({
     containerRef: mountRef,
@@ -42,13 +43,20 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     selectedPatientId,
     isDarkMode
   });
+  
+  const { handleMouseMove, handleClick } = useMouseInteraction({
+    camera: sceneSetup?.camera || null,
+    interactiveObjects,
+    onBedSelect,
+    onPatientSelect
+  });
 
   useEffect(() => {
     if (!mountRef.current || !sceneSetup) return;
     
     const { scene, camera, renderer, controls } = sceneSetup;
     const materials = createMaterials(isDarkMode);
-    const interactiveObjects: { [key: string]: THREE.Object3D } = {};
+    const newInteractiveObjects: Record<string, THREE.Object3D> = {};
 
     // Create floors
     const floorGeometry = new THREE.BoxGeometry(25, 0.2, 25);
@@ -68,7 +76,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
         isDarkMode
       );
       scene.add(bedMesh);
-      interactiveObjects[bed.id] = bedMesh;
+      newInteractiveObjects[bed.id] = bedMesh;
     });
 
     visiblePatients.forEach(patient => {
@@ -87,22 +95,20 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
             isDarkMode
           );
           scene.add(patientMesh);
-          interactiveObjects[patient.id] = patientMesh;
+          newInteractiveObjects[patient.id] = patientMesh;
         }
       }
     });
 
-    const { handleMouseMove, handleClick } = useMouseInteraction({
-      camera,
-      interactiveObjects,
-      onBedSelect,
-      onPatientSelect
-    });
-
+    setInteractiveObjects(newInteractiveObjects);
+    
     const container = mountRef.current;
     
-    container.addEventListener('mousemove', e => handleMouseMove(e, container));
-    container.addEventListener('click', e => handleClick(e, container));
+    const mouseMoveHandler = (e: MouseEvent) => handleMouseMove(e, container);
+    const clickHandler = (e: MouseEvent) => handleClick(e, container);
+    
+    container.addEventListener('mousemove', mouseMoveHandler);
+    container.addEventListener('click', clickHandler);
     
     const animate = () => {
       requestAnimationFrame(animate);
@@ -116,16 +122,16 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     
     return () => {
       if (container) {
-        container.removeEventListener('mousemove', e => handleMouseMove(e, container));
-        container.removeEventListener('click', e => handleClick(e, container));
+        container.removeEventListener('mousemove', mouseMoveHandler);
+        container.removeEventListener('click', clickHandler);
         container.removeChild(renderer.domElement);
       }
       
-      Object.values(interactiveObjects).forEach(object => {
+      Object.values(newInteractiveObjects).forEach(object => {
         scene.remove(object);
       });
     };
-  }, [hospital, selectedFloor, selectedPatientId, isDarkMode, visibleBeds, visiblePatients, visibleFloors, sceneSetup]);
+  }, [hospital, selectedFloor, selectedPatientId, isDarkMode, visibleBeds, visiblePatients, visibleFloors, sceneSetup, handleMouseMove, handleClick]);
   
   return (
     <div ref={mountRef} style={{ width: '100%', height: '100%' }} />

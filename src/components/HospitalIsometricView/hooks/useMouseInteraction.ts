@@ -1,10 +1,10 @@
 
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import * as THREE from 'three';
 
 interface UseMouseInteractionProps {
-  camera: THREE.Camera;
-  interactiveObjects: { [key: string]: THREE.Object3D };
+  camera: THREE.Camera | null;
+  interactiveObjects: Record<string, THREE.Object3D> | null;
   onBedSelect?: (id: string) => void;
   onPatientSelect?: (id: string) => void;
 }
@@ -17,16 +17,17 @@ export const useMouseInteraction = ({
 }: UseMouseInteractionProps) => {
   const raycasterRef = useRef(new THREE.Raycaster());
   const mouseRef = useRef(new THREE.Vector2());
-
+  
   const handleMouseMove = useCallback((event: MouseEvent, container: HTMLDivElement) => {
+    if (!camera || !interactiveObjects) return;
+    
     const rect = container.getBoundingClientRect();
-    raycasterRef.current.setFromCamera(
-      new THREE.Vector2(
-        ((event.clientX - rect.left) / rect.width) * 2 - 1,
-        -((event.clientY - rect.top) / rect.height) * 2 + 1
-      ),
-      camera
+    mouseRef.current.set(
+      ((event.clientX - rect.left) / rect.width) * 2 - 1,
+      -((event.clientY - rect.top) / rect.height) * 2 + 1
     );
+    
+    raycasterRef.current.setFromCamera(mouseRef.current, camera);
     
     const intersects = raycasterRef.current.intersectObjects(Object.values(interactiveObjects), true);
     
@@ -57,14 +58,15 @@ export const useMouseInteraction = ({
   }, [camera, interactiveObjects]);
 
   const handleClick = useCallback((event: MouseEvent, container: HTMLDivElement) => {
+    if (!camera || !interactiveObjects) return;
+    
     const rect = container.getBoundingClientRect();
-    raycasterRef.current.setFromCamera(
-      new THREE.Vector2(
-        ((event.clientX - rect.left) / rect.width) * 2 - 1,
-        -((event.clientY - rect.top) / rect.height) * 2 + 1
-      ),
-      camera
+    mouseRef.current.set(
+      ((event.clientX - rect.left) / rect.width) * 2 - 1,
+      -((event.clientY - rect.top) / rect.height) * 2 + 1
     );
+    
+    raycasterRef.current.setFromCamera(mouseRef.current, camera);
     
     const intersects = raycasterRef.current.intersectObjects(Object.values(interactiveObjects), true);
     

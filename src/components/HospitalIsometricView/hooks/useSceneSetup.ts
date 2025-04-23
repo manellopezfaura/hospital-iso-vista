@@ -27,7 +27,7 @@ export const useSceneSetup = ({
   const sceneRef = useRef<SceneSetupResult | null>(null);
 
   useEffect(() => {
-    if (!containerRef.current) return null;
+    if (!containerRef.current) return;
 
     const { scene, camera, renderer, controls } = setupScene(
       containerRef.current,
@@ -46,7 +46,9 @@ export const useSceneSetup = ({
     };
 
     return () => {
-      renderer.dispose();
+      if (renderer) {
+        renderer.dispose();
+      }
     };
   }, [containerRef, isDarkMode, selectedFloor, floorLevel]);
 
