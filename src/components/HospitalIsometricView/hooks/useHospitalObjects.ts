@@ -20,6 +20,7 @@ export const useHospitalObjects = ({
     const allFloors = hospital.floors;
     const visibleObjects: { [key: string]: THREE.Object3D } = {};
     
+    // If a specific floor is selected, only show objects for that floor
     if (selectedFloor) {
       const currentFloor = allFloors.find(f => f.id === selectedFloor);
       
@@ -42,7 +43,8 @@ export const useHospitalObjects = ({
       }
     }
     
-    // When no floor is selected, show all floors with their beds and patients
+    // When no floor is selected or on initial load, show all floors with their beds and patients
+    console.log("Showing all hospital floors:", allFloors.length);
     return { 
       visibleFloors: allFloors, 
       visibleBeds: hospital.beds, 

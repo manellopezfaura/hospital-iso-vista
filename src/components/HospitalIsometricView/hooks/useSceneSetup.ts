@@ -28,7 +28,10 @@ export const useSceneSetup = ({
 
   useEffect(() => {
     if (!containerRef.current) return;
-
+    
+    console.log("Setting up scene");
+    
+    // Create the scene, camera, renderer, and controls
     const { scene, camera, renderer, controls } = setupScene(
       containerRef.current,
       isDarkMode,
@@ -36,8 +39,10 @@ export const useSceneSetup = ({
       floorLevel
     );
 
+    // Set up lighting for the scene
     setupLights(scene, isDarkMode);
 
+    // Store references to scene elements
     sceneRef.current = {
       scene,
       camera,
@@ -64,11 +69,17 @@ export const useSceneSetup = ({
       camera.updateProjectionMatrix();
       
       renderer.setSize(width, height);
+      
+      // Force a render after resize
+      renderer.render(scene, camera);
     };
     
     window.addEventListener('resize', handleResize);
+    
+    // Force an initial size calculation and render
+    handleResize();
 
-    // Force an initial render
+    // Force an initial render to make sure content is visible
     renderer.render(scene, camera);
 
     return () => {

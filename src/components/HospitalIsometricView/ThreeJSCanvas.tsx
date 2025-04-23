@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
 import { Hospital } from '@/types/hospital';
@@ -29,6 +28,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
   const floorLevel = selectedFloor ? hospital.floors.find(f => f.id === selectedFloor)?.level : null;
   const [interactiveObjects, setInteractiveObjects] = useState<Record<string, THREE.Object3D>>({});
   const animationRef = useRef<number | null>(null);
+  const renderedOnceRef = useRef<boolean>(false);
   
   const sceneSetup = useSceneSetup({
     containerRef: mountRef,
@@ -37,7 +37,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     floorLevel
   });
   
-  const { visibleFloors, visibleBeds, visiblePatients } = useHospitalObjects({
+  const { visibleFloors, visibleBeds, visiblePatients, visibleObjects } = useHospitalObjects({
     hospital,
     selectedFloor,
     selectedPatientId,
@@ -46,7 +46,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
 
   // Setup mouse interaction handlers
   useEffect(() => {
-    if (!mountRef.current || !sceneSetup?.camera) return;
+    if (!mountRef.current || renderedOnceRef.current) return;
     
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
@@ -115,11 +115,31 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
   }, [sceneSetup, interactiveObjects, onBedSelect, onPatientSelect]);
 
   useEffect(() => {
+    if (!mountRef.current || renderedOnceRef.current) return;
+    
+    const initialRenderTimer = setTimeout(() => {
+      if (sceneSetup?.renderer && sceneSetup?.scene && sceneSetup?.camera) {
+        sceneSetup.renderer.render(sceneSetup.scene, sceneSetup.camera);
+        console.log("Forced initial render");
+        renderedOnceRef.current = true;
+      }
+    }, 100);
+    
+    return () => clearTimeout(initialRenderTimer);
+  }, [sceneSetup]);
+
+  useEffect(() => {
     if (!mountRef.current || !sceneSetup) return;
     
     const { scene, camera, renderer, controls } = sceneSetup;
     const materials = createMaterials(isDarkMode);
     const newInteractiveObjects: Record<string, THREE.Object3D> = {};
+
+    console.log("Rendering scene with:", {
+      floors: visibleFloors.length,
+      beds: visibleBeds.length, 
+      patients: visiblePatients.length
+    });
 
     // Clear previous scene objects (except lights)
     scene.children.forEach(child => {
@@ -174,29 +194,25 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     
     const container = mountRef.current;
     
+    if (container && !container.contains(renderer.domElement)) {
+      container.appendChild(renderer.domElement);
+    }
+    
+    renderer.render(scene, camera);
+    
     const animate = () => {
       animationRef.current = requestAnimationFrame(animate);
       controls.update();
       renderer.render(scene, camera);
     };
     
-    // Start animation loop immediately
     animationRef.current = requestAnimationFrame(animate);
-    
-    // Make sure the renderer is attached to the DOM
-    if (!container.contains(renderer.domElement)) {
-      container.appendChild(renderer.domElement);
-    }
-    
-    // Force an initial render
-    renderer.render(scene, camera);
     
     return () => {
       if (animationRef.current !== null) {
         cancelAnimationFrame(animationRef.current);
       }
       
-      // Clean up existing meshes to prevent memory leaks
       scene.children.forEach(child => {
         if (child instanceof THREE.Mesh) {
           child.geometry.dispose();
@@ -211,7 +227,11 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
   }, [hospital, selectedFloor, selectedPatientId, isDarkMode, visibleBeds, visiblePatients, visibleFloors, sceneSetup]);
   
   return (
-    <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
+    <div 
+      ref={mountRef} 
+      style={{ width: '100%', height: '100%' }} 
+      className="overflow-hidden"
+    />
   );
 };
 
