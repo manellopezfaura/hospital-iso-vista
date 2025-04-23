@@ -68,6 +68,9 @@ export const useSceneSetup = ({
     
     window.addEventListener('resize', handleResize);
 
+    // Force an initial render
+    renderer.render(scene, camera);
+
     return () => {
       window.removeEventListener('resize', handleResize);
       if (renderer) {

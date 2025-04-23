@@ -43,7 +43,6 @@ export const useHospitalObjects = ({
     }
     
     // When no floor is selected, show all floors with their beds and patients
-    // This ensures floors are visible on initial load
     return { 
       visibleFloors: allFloors, 
       visibleBeds: hospital.beds, 

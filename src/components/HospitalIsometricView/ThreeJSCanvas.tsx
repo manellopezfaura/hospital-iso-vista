@@ -28,6 +28,7 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
   const mountRef = useRef<HTMLDivElement>(null);
   const floorLevel = selectedFloor ? hospital.floors.find(f => f.id === selectedFloor)?.level : null;
   const [interactiveObjects, setInteractiveObjects] = useState<Record<string, THREE.Object3D>>({});
+  const animationRef = useRef<number | null>(null);
   
   const sceneSetup = useSceneSetup({
     containerRef: mountRef,
@@ -174,21 +175,38 @@ const ThreeJSCanvas: React.FC<ThreeJSCanvasProps> = ({
     const container = mountRef.current;
     
     const animate = () => {
-      requestAnimationFrame(animate);
+      animationRef.current = requestAnimationFrame(animate);
       controls.update();
       renderer.render(scene, camera);
     };
     
-    // Start animation loop
-    const animationId = requestAnimationFrame(animate);
+    // Start animation loop immediately
+    animationRef.current = requestAnimationFrame(animate);
     
     // Make sure the renderer is attached to the DOM
     if (!container.contains(renderer.domElement)) {
       container.appendChild(renderer.domElement);
     }
     
+    // Force an initial render
+    renderer.render(scene, camera);
+    
     return () => {
-      cancelAnimationFrame(animationId);
+      if (animationRef.current !== null) {
+        cancelAnimationFrame(animationRef.current);
+      }
+      
+      // Clean up existing meshes to prevent memory leaks
+      scene.children.forEach(child => {
+        if (child instanceof THREE.Mesh) {
+          child.geometry.dispose();
+          if (Array.isArray(child.material)) {
+            child.material.forEach(material => material.dispose());
+          } else if (child.material) {
+            child.material.dispose();
+          }
+        }
+      });
     };
   }, [hospital, selectedFloor, selectedPatientId, isDarkMode, visibleBeds, visiblePatients, visibleFloors, sceneSetup]);
   
